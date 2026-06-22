@@ -1,15 +1,12 @@
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 const logger = require('./logger');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  logger.error('Supabase URL or Anon Key is undefined in middleware');
+if (!JWT_SECRET) {
+  logger.error('SUPABASE_JWT_SECRET is undefined — token verification will fail');
 }
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -20,18 +17,21 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
-    if (error || !user) {
-      logger.error(`Token verification failed: ${error?.message}`);
-      return res.status(401).json({ error: "Unauthorized: Invalid or expired token." });
-    }
+    req.user = {
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      aud: payload.aud,
+      exp: payload.exp,
+    };
 
-    req.user = user;
     next();
   } catch (err) {
-    logger.error(`Auth exception: ${err.message}`);
-    return res.status(500).json({ error: "Internal server error during authentication." });
+    const reason = err.name === 'TokenExpiredError' ? 'token expired' : 'invalid signature';
+    logger.error(`JWT verification failed: ${reason}`);
+    return res.status(401).json({ error: "Unauthorized: Invalid or expired token." });
   }
 };
 

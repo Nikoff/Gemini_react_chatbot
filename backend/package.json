@@ -13,7 +13,6 @@
   "dependencies": {
     "@google/genai": "^2.6.0",
     "@prisma/client": "^5.22.0",
-    "@supabase/supabase-js": "^2.108.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
