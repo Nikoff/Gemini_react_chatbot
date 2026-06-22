@@ -1,0 +1,15 @@
+/* frontend/src/index.css */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+#root {
+  height: 100%;
+}

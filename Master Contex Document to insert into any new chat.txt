@@ -1,0 +1,29 @@
+# PROJECT OVERVIEW: NIKOFF FREE CHATBOT
+**Platform:** A commercial-grade, full-stack React/Node.js web application utilizing Google AI Studio's unified `@google/genai` SDK to interface with Gemini and Gemma LLM families.
+**Current State:** Transitioning from a stateless client-side MVP to a stateful, production-ready SaaS application.
+
+## 1. TECH STACK & ARCHITECTURE
+* **Frontend:** React (Vite), TypeScript (TSX), standard CSS. Icons via `lucide-react`.
+* **Backend:** Node.js, Express.
+* **AI SDK:** `@google/genai` (Unified SDK using `ai.models.generateContent`).
+* **State Management:** React Context (`StatsContext.tsx`) + `localStorage` (temporary, pre-database).
+
+## 2. KEY FRONTEND COMPONENTS
+* **`App.tsx`:** The main layout shell. Contains a dynamic `<textarea>` input that auto-expands (via `useRef` and `scrollHeight`) up to 200px before scrolling. Captures `Shift+Enter` for newlines and `Enter` for submission. Includes a model selector dropdown mapping to precise Google AI Studio model strings.
+* **`StatsDashboard.tsx`:** A right-hand sidebar displaying session metrics (Requests, Avg Response Time, Input/Output Tokens) and a dynamic "Active Context" progress bar. Features an "All Time" vs "Last Hour" sliding window filter.
+* **`StatsContext.tsx`:** The core metrics tracker. Logs every request into a `history` array. 
+
+## 3. CRITICAL CONFIGURATIONS & RULES
+* **Model Configs (`MODEL_CONFIGS`):** The frontend dynamically scales its Context limits based on the selected model architecture to ensure accurate UI progress bars.
+    * `gemini-2.5-flash` / `gemini-2.0-flash`: 1,048,576 max tokens.
+    * `gemma-4-31b-it` / `gemma-4-26b-a4b-it`: 256,000 max tokens.
+* **Payload Syntax (Google Native vs OpenAI):** The backend strictly adheres to Google's native JSON structure. It maps history to `role: 'user'` and `role: 'model'` (NOT 'assistant'). It uses `contents` and `parts[].text` (NOT 'messages' and 'content').
+* **Gemma-Specific Routing:** When the backend detects a `gemma` model string, it dynamically injects strict optimal sampling parameters into the `config` object: `{ temperature: 1.0, topP: 0.95, topK: 64 }`.
+
+## 4. RESOLVED TECHNICAL DEBT
+* Fixed Vite/Oxc compiler errors caused by mismatched brace syntax during top-half file replacements.
+* Fixed "White Screen of Death" caused by orphaned imports (`GEMINI_LIMITS` was replaced by `MODEL_CONFIGS`).
+* Bypassed OpenAI-wrapper silent failures for Gemma 4 by routing directly through the official Google generative language endpoint with native syntax.
+
+## 5. PLANNED COMMERCIAL ROADMAP
+The goal is to scale this into a full SaaS platform (Auth, DB, Monetization, Agents, Multimodal Tools like ComfyUI). We are currently shifting from stateless local storage to a stateful database architecture.
