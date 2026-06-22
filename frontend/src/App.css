@@ -745,3 +745,74 @@
   color: white;
   border-color: #10b981;
 }
+
+/* Edit UI */
+.edit-mode {
+  width: 100%;
+}
+
+.edit-textarea {
+  width: 100%;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #f8fafc;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.edit-textarea:focus {
+  border-color: #3b82f6;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.edit-save-btn, .edit-cancel-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: none;
+}
+
+.edit-save-btn {
+  background-color: #10b981;
+  color: white;
+}
+
+.edit-save-btn:hover {
+  background-color: #059669;
+}
+
+.edit-cancel-btn {
+  background-color: #334155;
+  color: #94a3b8;
+}
+
+.edit-cancel-btn:hover {
+  background-color: #475569;
+  color: #f8fafc;
+}
+
+.edit-actions-inline {
+  margin-left: 46px;
+  margin-top: 0.25rem;
+}
+
+.edited-badge {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+  margin-left: 0.5rem;
+}

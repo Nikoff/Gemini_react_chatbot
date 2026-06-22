@@ -81,6 +81,15 @@ describe('POST /api/messages/:messageId/feedback', () => {
   });
 });
 
+describe('PUT /api/messages/:messageId', () => {
+  test('rejects unauthenticated edit', async () => {
+    const res = await request(app)
+      .put('/api/messages/fake-id')
+      .send({ content: 'edited' });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('GET /api/threads/:threadId/search', () => {
   test('rejects unauthenticated search', async () => {
     const res = await request(app).get('/api/threads/fake-id/search?q=test');

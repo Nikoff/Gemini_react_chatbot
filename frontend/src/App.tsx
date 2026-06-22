@@ -6,11 +6,11 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageSquare, Plus, Menu, X, Send, Bot, User, LogOut, Search, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { MessageSquare, Plus, Menu, X, Send, Bot, User, LogOut, Search, Download, ThumbsUp, ThumbsDown, Pencil, Check } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; feedback?: { rating: number; comment?: string } | null; }
+interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
 interface ChatThread { id: string; title: string; }
 
 export default function App() {
@@ -26,6 +26,8 @@ export default function App() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -207,6 +209,30 @@ export default function App() {
       }
     } catch (err) {
       console.error('Export failed:', err);
+    }
+  };
+
+  const handleEdit = async (messageId: string) => {
+    if (!editingText.trim() || !session) return;
+    try {
+      const res = await fetch(`${API_URL}/api/messages/${messageId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ content: editingText })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(prev => prev.map(m =>
+          m.id === messageId ? { ...m, text: data.content, editedAt: data.editedAt } : m
+        ));
+        setEditingId(null);
+        setEditingText('');
+      }
+    } catch (err) {
+      console.error('Edit failed:', err);
     }
   };
 
@@ -441,9 +467,43 @@ export default function App() {
                     {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                   </div>
                   <div className="message-body-content-text">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                    {editingId === msg.id ? (
+                      <div className="edit-mode">
+                        <textarea
+                          className="edit-textarea"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEdit(msg.id!); } }}
+                          rows={3}
+                        />
+                        <div className="edit-actions">
+                          <button className="edit-save-btn" onClick={() => handleEdit(msg.id!)}>
+                            <Check size={14} /> Save
+                          </button>
+                          <button className="edit-cancel-btn" onClick={() => { setEditingId(null); setEditingText(''); }}>
+                            <X size={14} /> Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                        {msg.editedAt && <span className="edited-badge">(edited)</span>}
+                      </>
+                    )}
                   </div>
                 </div>
+                {msg.role === 'user' && msg.id && editingId !== msg.id && (
+                  <div className="edit-actions-inline">
+                    <button
+                      className="feedback-btn"
+                      onClick={() => { setEditingId(msg.id!); setEditingText(msg.text); }}
+                      title="Edit message"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                )}
                 {msg.role === 'ai' && msg.id && (
                   <div className="feedback-actions">
                     <button
