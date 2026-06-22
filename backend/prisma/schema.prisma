@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,15 +8,13 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Mirrors the Supabase Auth User
 model User {
-  id        String   @id 
+  id        String   @id
   email     String   @unique
   threads   Thread[]
   createdAt DateTime @default(now())
 }
 
-// Represents a single chat conversation in the left sidebar
 model Thread {
   id        String    @id @default(uuid())
   userId    String
@@ -30,15 +23,32 @@ model Thread {
   messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([userId])
 }
 
-// Represents individual chat bubbles inside a thread
 model Message {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   threadId  String
-  role      String   // 'user' or 'model'
+  role      String
   content   String
-  tokens    Int?     // Tracks token usage per bubble
-  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tokens    Int?
+  thread    Thread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  feedbacks Feedback[]
+  createdAt DateTime   @default(now())
+
+  @@index([threadId])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  rating    Int      // 1 = thumbs up, -1 = thumbs down
+  comment   String?
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
 }

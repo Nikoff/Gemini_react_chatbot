@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStats } from './context/StatsContext';
 import { StatsDashboard } from './components/StatsDashboard';
-import { supabase } from './supabaseClient'; // Import Client
-import { Auth } from '@supabase/auth-ui-react'; // Import Auth UI
-import { ThemeSupa } from '@supabase/auth-ui-shared'; // Import Theme
+import { supabase } from './supabaseClient';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageSquare, Plus, Menu, X, Send, Bot, User, LogOut } from 'lucide-react';
+import { MessageSquare, Plus, Menu, X, Send, Bot, User, LogOut, Search, Download, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-interface ChatMessage { role: 'user' | 'ai'; text: string; }
+interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; feedback?: { rating: number; comment?: string } | null; }
 interface ChatThread { id: string; title: string; }
 
 export default function App() {
@@ -24,6 +24,8 @@ export default function App() {
   // DYNAMIC SIDEBAR DATABASE STATE TRACKING
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -151,6 +153,60 @@ export default function App() {
       setMessages([]); 
     } catch (err) {
       console.error("Failed creating thread channel:", err);
+    }
+  };
+
+  const handleFeedback = async (messageId: string, rating: number) => {
+    if (!session) return;
+    try {
+      await fetch(`${API_URL}/api/messages/${messageId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ rating })
+      });
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? { ...m, feedback: { rating } } : m
+      ));
+    } catch (err) {
+      console.error('Feedback failed:', err);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || !currentThreadId || !session) return;
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/search?q=${encodeURIComponent(searchQuery)}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        const results = await res.json();
+        setSearchResults(results);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+    }
+  };
+
+  const handleExport = async (format: 'json' | 'md') => {
+    if (!currentThreadId || !session) return;
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/export?format=${format}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-export.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Export failed:', err);
     }
   };
 
@@ -330,16 +386,44 @@ export default function App() {
             <span className="brand-title">Nikoff Free Chatbot</span>
           </div>
 
-          <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="model-selector-dropdown">
-            <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
-            <option value="gemini-3.0-flash">Gemini 3.0 Flash</option>
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-            <option value="gemma-4-31b-it">Gemma 4 31B (Dense)</option>
-            <option value="gemma-4-26b-a4b-it">Gemma 4 26B (MoE)</option>
-          </select>
+          <div className="header-actions">
+            <div className="search-bar">
+              <Search size={16} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                placeholder="Search messages..."
+                className="search-input"
+              />
+              {searchResults && (
+                <button className="search-clear" onClick={() => { setSearchResults(null); setSearchQuery(''); }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="export-buttons">
+              <button className="export-btn" onClick={() => handleExport('json')} title="Export as JSON">
+                <Download size={16} />
+              </button>
+              <button className="export-btn" onClick={() => handleExport('md')} title="Export as Markdown">
+                <Download size={16} />
+              </button>
+            </div>
+
+            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="model-selector-dropdown">
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              <option value="gemini-3.0-flash">Gemini 3.0 Flash</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemma-4-31b-it">Gemma 4 31B (Dense)</option>
+              <option value="gemma-4-26b-a4b-it">Gemma 4 26B (MoE)</option>
+            </select>
+          </div>
         </header>
 
         <div className="chat-messages-scroll-area">
@@ -350,8 +434,8 @@ export default function App() {
               <p>Select an LLM engine above to deploy complex processing arrays.</p>
             </div>
           ) : (
-            messages.map((msg, index) => (
-              <div key={index} className={`message-bubble-wrapper ${msg.role === 'user' ? 'user-type' : 'ai-type'}`}>
+            (searchResults || messages).map((msg, index) => (
+              <div key={msg.id || index} className={`message-bubble-wrapper ${msg.role === 'user' ? 'user-type' : 'ai-type'}`}>
                 <div className="message-container-max-width">
                   <div className="author-avatar-badge">
                     {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -360,6 +444,24 @@ export default function App() {
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                   </div>
                 </div>
+                {msg.role === 'ai' && msg.id && (
+                  <div className="feedback-actions">
+                    <button
+                      className={`feedback-btn ${msg.feedback?.rating === 1 ? 'active' : ''}`}
+                      onClick={() => handleFeedback(msg.id!, 1)}
+                      title="Good response"
+                    >
+                      <ThumbsUp size={14} />
+                    </button>
+                    <button
+                      className={`feedback-btn ${msg.feedback?.rating === -1 ? 'active' : ''}`}
+                      onClick={() => handleFeedback(msg.id!, -1)}
+                      title="Bad response"
+                    >
+                      <ThumbsDown size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

@@ -1,11 +1,15 @@
 require('dotenv').config();
-const jwt = require('jsonwebtoken');
 const logger = require('./logger');
 
-const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const supabaseUrl = process.env.SUPABASE_URL;
+let JWKS;
 
-if (!JWT_SECRET) {
-  logger.error('SUPABASE_JWT_SECRET is undefined — token verification will fail');
+async function loadJWKS() {
+  if (!JWKS) {
+    const { createRemoteJWKSet } = await import('jose');
+    JWKS = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`));
+  }
+  return JWKS;
 }
 
 const authenticateToken = async (req, res, next) => {
@@ -17,7 +21,12 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    const { jwtVerify } = await import('jose');
+    const jwks = await loadJWKS();
+
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: `${supabaseUrl}/auth/v1`,
+    });
 
     req.user = {
       sub: payload.sub,
@@ -29,8 +38,7 @@ const authenticateToken = async (req, res, next) => {
 
     next();
   } catch (err) {
-    const reason = err.name === 'TokenExpiredError' ? 'token expired' : 'invalid signature';
-    logger.error(`JWT verification failed: ${reason}`);
+    logger.error(`JWT verification failed: ${err.message}`);
     return res.status(401).json({ error: "Unauthorized: Invalid or expired token." });
   }
 };
