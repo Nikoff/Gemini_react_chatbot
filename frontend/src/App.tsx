@@ -7,6 +7,7 @@ import { NeuralCanvas } from './components/NeuralCanvas';
 import { BlackHoleCanvas } from './components/BlackHoleCanvas';
 import { LivingCanvas } from './components/LivingCanvas';
 import { AuthScreen } from './components/AuthScreen';
+import { LandingPage } from './components/LandingPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
@@ -88,7 +89,7 @@ export default function App() {
     if (thread) setMessages([]);
   };
 
-  if (!session) return <AuthScreen />;
+  if (!session) return <LandingPage onLogin={() => {}} />;
 
   return (
     <div className="app-workspace">

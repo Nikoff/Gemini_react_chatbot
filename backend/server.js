@@ -9,6 +9,7 @@ const logger = require('./logger');
 const requireAuth = require('./authMiddleware');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -64,6 +65,48 @@ const requireAdmin = async (req, res, next) => {
     next();
   } catch (err) {
     res.status(500).json({ error: 'Authorization check failed.' });
+  }
+};
+
+// Subscription tiers
+const TIERS = {
+  free: { maxMessages: 50, maxThreads: 3, models: ['gemini-2.5-flash'] },
+  pro: { maxMessages: -1, maxThreads: -1, models: null },
+  team: { maxMessages: -1, maxThreads: -1, models: null },
+};
+
+// Subscription check middleware
+const checkSubscription = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      include: { subscription: true },
+    });
+
+    const tier = user?.subscription?.status === 'active' ? 'pro' : 'free';
+    const limits = TIERS[tier];
+
+    req.subscriptionTier = tier;
+    req.subscriptionLimits = limits;
+
+    if (tier === 'free') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const msgCount = await prisma.message.count({
+        where: {
+          thread: { userId: req.user.sub },
+          createdAt: { gte: today },
+          role: 'user',
+        },
+      });
+      if (msgCount >= limits.maxMessages) {
+        return res.status(429).json({ error: 'Daily message limit reached. Upgrade to Pro for unlimited messages.' });
+      }
+    }
+
+    next();
+  } catch (err) {
+    next();
   }
 };
 
@@ -269,7 +312,7 @@ app.use((req, res, next) => {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
+app.post('/api/chat', requireAuth, checkSubscription, chatLimiter, async (req, res) => {
   const parsed = chatSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request body.', details: parsed.error.issues });
@@ -423,7 +466,7 @@ app.put('/api/threads/:threadId/system-prompt', requireAuth, async (req, res) =>
 
 // --- Regenerate from message (branching) ---
 
-app.post('/api/threads/:threadId/regenerate', requireAuth, chatLimiter, async (req, res) => {
+app.post('/api/threads/:threadId/regenerate', requireAuth, checkSubscription, chatLimiter, async (req, res) => {
   const { threadId } = req.params;
   const { messageId, model } = req.body;
   const targetModel = model || 'gemini-2.5-flash';
@@ -607,6 +650,176 @@ app.get('/api/shared/:shareToken', async (req, res) => {
   } catch (err) {
     logger.error(`Shared view failed: ${err.message}`);
     res.status(500).json({ error: 'Failed to load shared conversation.' });
+  }
+});
+
+// --- Stripe / Subscriptions ---
+
+const STRIPE_PRICES = {
+  pro_monthly: process.env.STRIPE_PRO_PRICE_ID,
+  team_monthly: process.env.STRIPE_TEAM_PRICE_ID,
+};
+
+app.get('/api/subscription', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      include: { subscription: true },
+    });
+
+    const sub = user?.subscription;
+    res.json({
+      tier: sub?.status === 'active' ? (sub.stripePriceId === STRIPE_PRICES.team_monthly ? 'team' : 'pro') : 'free',
+      status: sub?.status || 'free',
+      currentPeriodEnd: sub?.currentPeriodEnd,
+      stripeCustomerId: user?.stripeCustomerId,
+    });
+  } catch (err) {
+    logger.error(`Subscription check failed: ${err.message}`);
+    res.json({ tier: 'free', status: 'free' });
+  }
+});
+
+app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
+  const { priceId } = req.body;
+
+  if (!Object.values(STRIPE_PRICES).includes(priceId)) {
+    return res.status(400).json({ error: 'Invalid price ID.' });
+  }
+
+  try {
+    let user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+
+    if (!user.stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: req.user.email,
+        metadata: { userId: req.user.sub },
+      });
+      user = await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { stripeCustomerId: customer.id },
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: user.stripeCustomerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/subscription?success=true`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/subscription?canceled=true`,
+      metadata: { userId: req.user.sub },
+    });
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (err) {
+    logger.error(`Checkout failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to create checkout session.' });
+  }
+});
+
+app.post('/api/subscription/portal', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+
+    if (!user?.stripeCustomerId) {
+      return res.status(400).json({ error: 'No billing account found.' });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/subscription`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    logger.error(`Portal failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to create portal session.' });
+  }
+});
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    logger.error(`Webhook signature verification failed: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const userId = session.metadata.userId;
+
+        await prisma.subscription.upsert({
+          where: { userId },
+          update: {
+            stripeSubscriptionId: session.subscription,
+            stripePriceId: session.metadata.priceId,
+            status: 'active',
+          },
+          create: {
+            userId,
+            stripeSubscriptionId: session.subscription,
+            stripePriceId: session.metadata.priceId,
+            status: 'active',
+          },
+        });
+        logger.info(`Subscription activated for user ${userId}`);
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        const subscription = await prisma.subscription.findFirst({
+          where: { stripeSubscriptionId: invoice.subscription },
+        });
+        if (subscription) {
+          await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: { status: 'active', currentPeriodEnd: new Date(invoice.period_end * 1000) },
+          });
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const subscription = await prisma.subscription.findFirst({
+          where: { stripeSubscriptionId: invoice.subscription },
+        });
+        if (subscription) {
+          await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: { status: 'past_due' },
+          });
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const subscription = await prisma.subscription.findFirst({
+          where: { stripeSubscriptionId: sub.id },
+        });
+        if (subscription) {
+          await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: { status: 'canceled', currentPeriodEnd: new Date(sub.current_period_end * 1000) },
+          });
+        }
+        break;
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    logger.error(`Webhook handler failed: ${err.message}`);
+    res.status(500).json({ error: 'Webhook handler failed.' });
   }
 });
 

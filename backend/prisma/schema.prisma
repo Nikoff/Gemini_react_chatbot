@@ -9,11 +9,25 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  email     String   @unique
-  role      String   @default("user")
-  threads   Thread[]
-  createdAt DateTime @default(now())
+  id             String         @id
+  email          String         @unique
+  role           String         @default("user")
+  stripeCustomerId String?      @unique
+  subscription   Subscription?
+  threads        Thread[]
+  createdAt      DateTime       @default(now())
+}
+
+model Subscription {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId      String?
+  status             String    @default("free") // free, active, canceled, past_due
+  currentPeriodEnd   DateTime?
+  user               User      @relation(fields: [userId], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model Thread {
