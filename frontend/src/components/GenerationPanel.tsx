@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Image, Sparkles, Download, X, Loader2, Coins, AlertCircle } from 'lucide-react';
-import { useI18n } from '../context/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -21,7 +20,6 @@ interface Props {
 }
 
 export function GenerationPanel({ session, isOpen, onClose }: Props) {
-  const { t } = useI18n();
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);

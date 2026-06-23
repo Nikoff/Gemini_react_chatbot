@@ -116,7 +116,6 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
         setShowPublishModal(false);
         setPublishForm({ name: '', description: '', type: 'workflow', price: 0, tags: '' });
         loadItems();
-        loadMyItems();
       }
     } catch {}
   };
@@ -219,7 +218,7 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
                 <span className="mp-detail-price">
                   {selectedItem.price > 0 ? `${selectedItem.price} credits` : 'Free'}
                 </span>
-                {selectedItem.userId !== session.user?.id && (
+                {selectedItem.user.id !== session.user?.id && (
                   <button
                     className="mp-purchase-btn"
                     onClick={() => handlePurchase(selectedItem)}

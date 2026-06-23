@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; audio?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
 
-export function useChat(session: any, trackRequest: (i: number, o: number, t: number, ms: number, model: string) => void) {
+export function useChat(_session: any, trackRequest: (i: number, o: number, t: number, ms: number, model: string) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 

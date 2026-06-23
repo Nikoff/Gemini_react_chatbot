@@ -50,7 +50,6 @@ export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendin
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
         const event = { target: { files: [file], value: '' } } as any;
         onImageSelect(event);
       };

@@ -40,7 +40,7 @@ export default function App() {
   const [showMarketplace, setShowMarketplace] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
+  const { threads, setThreads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
   const { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback, regenerate } = useChat(session, trackRequest);
   const { isRecording, pendingAudio, startRecording, stopRecording, clearAudio } = useVoiceRecording();
   const { pendingImage, fileInputRef, handleImageSelect, clearImage } = useImageUpload();

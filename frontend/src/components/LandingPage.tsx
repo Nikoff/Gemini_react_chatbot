@@ -1,4 +1,4 @@
-import { Bot, Check, Zap, Users, Star } from 'lucide-react';
+import { Bot, Check, Zap, Users, Star, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useI18n } from '../context/I18nContext';
 
@@ -73,14 +73,14 @@ export function LandingPage({ onLogin }: Props) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ priceId: process.env[`STRIPE_${priceId.toUpperCase()}_ID`] || priceId }),
+        body: JSON.stringify({ priceId }),
       });
 
       if (res.ok) {
         const { url } = await res.json();
         window.location.href = url;
       }
-    } catch {
+    } catch (err) {
       console.error('Checkout failed:', err);
     }
   };

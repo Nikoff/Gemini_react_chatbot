@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface Thread { id: string; title: string; createdAt: string; }
 
-export function useThreads(session: any) {
+export function useThreads(_session: any) {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
 
@@ -78,5 +78,5 @@ export function useThreads(session: any) {
     }
   }, []);
 
-  return { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread };
+  return { threads, setThreads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread };
 }

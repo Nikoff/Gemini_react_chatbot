@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -13,8 +13,7 @@ import {
   type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, ArrowRight, Square } from 'lucide-react';
-import { useI18n } from '../context/I18nContext';
+import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, Square } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -98,9 +97,8 @@ let nodeIdCounter = 0;
 const getNextId = () => `node_${++nodeIdCounter}`;
 
 export function WorkflowEditor({ session, isOpen, onClose }: Props) {
-  const { t } = useI18n();
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [isRunning, setIsRunning] = useState(false);
@@ -111,7 +109,7 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
 
   const onConnect = useCallback((params: Connection) => {
-    setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#64748b' } }, eds));
+    setEdges((eds) => addEdge({ ...params, animated: true }, eds));
   }, [setEdges]);
 
   const addNode = (type: string) => {
@@ -137,8 +135,8 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   };
 
   const deleteSelected = () => {
-    setNodes((nds) => nds.filter((n) => !n.selected));
-    setEdges((eds) => eds.filter((e) => !e.sourceNode?.selected && !e.targetNode?.selected));
+    setNodes((nds) => nds.filter((n) => !(n as any).selected));
+    setEdges((eds) => eds.filter((e) => !(e as any).sourceNode?.selected && !(e as any).targetNode?.selected));
   };
 
   const handleSave = async () => {
