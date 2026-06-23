@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { MessageSquare, Plus, Menu, X, LogOut, Pencil, Settings } from 'lucide-react';
+import { MessageSquare, Plus, Menu, X, LogOut, Pencil, Settings, Shield } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useI18n } from '../context/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -17,9 +18,11 @@ interface Props {
   onRenameThread: (id: string, title: string) => void;
   onToggleSidebar: () => void;
   onSystemPromptChange: (threadId: string, prompt: string | null) => void;
+  onOpenAdmin: () => void;
 }
 
-export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSelectThread, onCreateThread, onDeleteThread, onRenameThread, onToggleSidebar, onSystemPromptChange }: Props) {
+export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSelectThread, onCreateThread, onDeleteThread, onRenameThread, onToggleSidebar, onSystemPromptChange, onOpenAdmin }: Props) {
+  const { t } = useI18n();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renamingText, setRenamingText] = useState('');
   const [showPromptModal, setShowPromptModal] = useState(false);
@@ -43,7 +46,7 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
       <div className="sidebar-top-action">
         <button className="new-chat-button" onClick={onCreateThread}>
           <Plus size={18} />
-          {isSidebarOpen && <span>New Chat</span>}
+          {isSidebarOpen && <span>{t('sidebar.newChat')}</span>}
         </button>
         <button className="sidebar-toggle-inner" onClick={onToggleSidebar}>
           {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
@@ -52,7 +55,7 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
 
       {isSidebarOpen && (
         <div className="threads-history-container">
-          <p className="history-section-heading">Recent Conversations</p>
+            <p className="history-section-heading">{t('sidebar.recent')}</p>
           <div className="threads-list">
             {threads.map(thread => {
               const date = new Date(thread.createdAt);
@@ -113,18 +116,22 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
       {isSidebarOpen && (
         <div className="user-profile-cabinet-footer">
           {currentThreadId && (
-            <button className="system-prompt-btn" onClick={handleOpenPrompt} title="Set system prompt">
+            <button className="system-prompt-btn" onClick={handleOpenPrompt} title={t('sidebar.systemPrompt')}>
               <Settings size={16} />
-              <span>System Prompt</span>
+              <span>{t('sidebar.systemPrompt')}</span>
             </button>
           )}
+          <button className="system-prompt-btn" onClick={onOpenAdmin} title={t('sidebar.admin')}>
+            <Shield size={16} />
+            <span>{t('sidebar.admin')}</span>
+          </button>
           <div className="user-avatar-placeholder">
             {session.user?.email?.[0].toUpperCase()}
           </div>
           <div className="user-meta-info">
             <p className="profile-name">{session.user?.email}</p>
             <button className="logout-action-text-btn" onClick={() => supabase.auth.signOut()}>
-              <LogOut size={12} /> Sign Out
+              <LogOut size={12} /> {t('sidebar.signOut')}
             </button>
           </div>
         </div>
@@ -134,12 +141,12 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
         <div className="modal-overlay" onClick={() => setShowPromptModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>System Prompt</h3>
+              <h3>{t('modal.systemPrompt')}</h3>
               <button className="modal-close" onClick={() => setShowPromptModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <p className="modal-description">Instructions for the AI in this conversation. The AI will follow these instructions for all messages in this thread.</p>
+            <p className="modal-description">{t('modal.systemPromptDesc')}</p>
             <textarea
               className="modal-textarea"
               value={promptText}
@@ -148,8 +155,8 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
               rows={6}
             />
             <div className="modal-actions">
-              <button className="modal-cancel" onClick={() => setShowPromptModal(false)}>Cancel</button>
-              <button className="modal-save" onClick={handleSavePrompt}>Save</button>
+              <button className="modal-cancel" onClick={() => setShowPromptModal(false)}>{t('modal.cancel')}</button>
+              <button className="modal-save" onClick={handleSavePrompt}>{t('modal.save')}</button>
             </div>
           </div>
         </div>

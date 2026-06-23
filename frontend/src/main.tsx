@@ -6,16 +6,19 @@ import './App.css'
 import './themes.css'
 import { StatsProvider } from './context/StatsContext.tsx'
 import { ThemeProvider } from './context/ThemeContext.tsx'
-import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { I18nProvider } from './context/I18nContext.tsx'
+import { ErrorBoundaryWrapper } from './components/ErrorBoundaryWrapper'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <StatsProvider>
-          <App />
-        </StatsProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <I18nProvider>
+      <ErrorBoundaryWrapper>
+        <ThemeProvider>
+          <StatsProvider>
+            <App />
+          </StatsProvider>
+        </ThemeProvider>
+      </ErrorBoundaryWrapper>
+    </I18nProvider>
   </React.StrictMode>,
 )

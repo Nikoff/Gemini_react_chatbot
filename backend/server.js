@@ -54,6 +54,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Admin middleware
+const requireAdmin = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Authorization check failed.' });
+  }
+};
+
 // --- Validation Schemas ---
 
 const syncSchema = z.object({
@@ -304,96 +317,30 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       requestPayload.config = { temperature: 1.0, topP: 0.95, topK: 64 };
     }
 
-    const response = await ai.models.generateContent(requestPayload);
+    const tools = [
+      {
+        functionDeclarations: [
+          {
+            name: 'calculator',
+            description: 'Perform mathematical calculations. Use this for math problems, unit conversions, or any computation.',
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                expression: { type: 'STRING', description: 'The mathematical expression to evaluate' },
+              },
+              required: ['expression'],
+            },
+          },
+          {
+            name: 'get_current_time',
+            description: 'Get the current date and time.',
+            parameters: { type: 'OBJECT', properties: {} },
+          },
+        ],
+      },
+    ];
 
-    const promptTokens = response.usageMetadata?.promptTokenCount || 0;
-    const candidatesTokens = response.usageMetadata?.candidatesTokenCount || 0;
-
-    logger.info(`Gemini success | In(${promptTokens}) Out(${candidatesTokens})`);
-
-    if (threadId) {
-      const thread = await prisma.thread.findUnique({ where: { id: threadId } });
-      if (!thread || thread.userId !== userId) {
-        return res.status(403).json({ error: 'Access denied to this thread.' });
-      }
-
-      const lastUserMsg = messages[messages.length - 1];
-      if (lastUserMsg) {
-        await prisma.$transaction([
-          prisma.message.createMany({
-            data: [
-              { threadId, role: 'user', content: lastUserMsg.text },
-              { threadId, role: 'model', content: response.text, tokens: candidatesTokens },
-            ],
-          }),
-          prisma.thread.update({ where: { id: threadId }, data: { updatedAt: new Date() } }),
-        ]);
-      }
-    }
-
-    res.json({
-      text: response.text,
-      usage: { promptTokens, candidatesTokens, totalTokens: promptTokens + candidatesTokens },
-      modelUsed: targetModel,
-    });
-  } catch (error) {
-    logger.error(`Chat failed: ${error.message}`);
-    res.status(500).json({ error: 'An error occurred during processing.' });
-  }
-});
-
-// --- Streaming Chat (SSE) ---
-
-app.post('/api/chat/stream', requireAuth, chatLimiter, async (req, res) => {
-  const parsed = chatSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Invalid request body.', details: parsed.error.issues });
-  }
-
-  const { messages, model, threadId } = parsed.data;
-  const targetModel = model || 'gemini-2.5-flash';
-  const userId = req.user.sub;
-
-  if (!ALLOWED_MODELS.includes(targetModel)) {
-    return res.status(400).json({ error: 'Model not allowed.' });
-  }
-
-  logger.info(`Stream request from ${req.user.email} | model: ${targetModel}`);
-
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  });
-
-  try {
-    const formattedHistory = messages.map(msg => {
-      const parts = [];
-      if (msg.text) parts.push({ text: msg.text });
-      if (msg.image) parts.push({ inlineData: { mimeType: msg.image.mimeType, data: msg.image.data } });
-      if (msg.audio) parts.push({ inlineData: { mimeType: msg.audio.mimeType, data: msg.audio.data } });
-      return { role: msg.role === 'ai' ? 'model' : 'user', parts: parts.length ? parts : [{ text: '' }] };
-    });
-
-    const requestPayload = { model: targetModel, contents: formattedHistory };
-    if (targetModel.includes('gemma')) {
-      requestPayload.config = { temperature: 1.0, topP: 0.95, topK: 64 };
-    }
-
-    if (formattedHistory.length > CONTEXT_COMPRESS_THRESHOLD && threadId) {
-      try {
-        const toSummarize = formattedHistory.slice(0, formattedHistory.length - CONTEXT_KEEP_RECENT);
-        const convText = toSummarize.map(m => `${m.role}: ${m.parts[0]?.text || ''}`).join('\n');
-        const sumRes = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [{ role: 'user', parts: [{ text: `Summarize concisely:\n${convText.substring(0, 3000)}` }] }],
-        });
-        const summary = sumRes.text;
-        formattedHistory.splice(0, toSummarize.length, { role: 'model', parts: [{ text: `[Summary] ${summary}` }] });
-        requestPayload.contents = formattedHistory;
-      } catch {}
-    }
+    requestPayload.tools = tools;
 
     const stream = await ai.models.generateContentStream(requestPayload);
 
@@ -540,6 +487,33 @@ app.post('/api/threads/:threadId/regenerate', requireAuth, chatLimiter, async (r
         promptTokens = chunk.usageMetadata.promptTokenCount || 0;
         candidatesTokens = chunk.usageMetadata.candidatesTokenCount || 0;
       }
+
+      if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+        for (const call of chunk.functionCalls) {
+          let result = '';
+          if (call.name === 'calculator') {
+            try { result = String(eval(call.args.expression)); } catch { result = 'Error: Invalid expression'; }
+          } else if (call.name === 'get_current_time') {
+            result = new Date().toISOString();
+          }
+          res.write(`data: ${JSON.stringify({ type: 'tool_call', name: call.name, args: call.args, result })}\n\n`);
+          formattedHistory.push({ role: 'model', parts: [{ functionCall: call }] });
+          formattedHistory.push({ role: 'user', parts: [{ functionResponse: { name: call.name, response: { result } } }] });
+        }
+
+        const secondStream = await ai.models.generateContentStream({ model: targetModel, contents: formattedHistory, tools });
+        for await (const chunk2 of secondStream) {
+          const t = chunk2.text || '';
+          if (t) {
+            fullText += t;
+            res.write(`data: ${JSON.stringify({ type: 'chunk', text: t })}\n\n`);
+          }
+          if (chunk2.usageMetadata) {
+            promptTokens += chunk2.usageMetadata.promptTokenCount || 0;
+            candidatesTokens += chunk2.usageMetadata.candidatesTokenCount || 0;
+          }
+        }
+      }
     }
 
     if (fullText) {
@@ -633,6 +607,91 @@ app.get('/api/shared/:shareToken', async (req, res) => {
   } catch (err) {
     logger.error(`Shared view failed: ${err.message}`);
     res.status(500).json({ error: 'Failed to load shared conversation.' });
+  }
+});
+
+// --- Admin Dashboard ---
+
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+      const threadCount = await prisma.thread.count({ where: { userId: user.id } });
+      const messageCount = await prisma.message.count({
+        where: { thread: { userId: user.id } },
+      });
+      return { ...user, threadCount, messageCount };
+    }));
+
+    res.json(usersWithStats);
+  } catch (err) {
+    logger.error(`Admin users failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to fetch users.' });
+  }
+});
+
+app.put('/api/admin/users/:userId/role', requireAuth, requireAdmin, async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  if (!['user', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role.' });
+  }
+
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { role } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(`Admin role update failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to update role.' });
+  }
+});
+
+app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const totalUsers = await prisma.user.count();
+    const totalThreads = await prisma.thread.count();
+    const totalMessages = await prisma.message.count();
+    const totalFeedbacks = await prisma.feedback.count();
+
+    const recentThreads = await prisma.thread.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, title: true, createdAt: true, user: { select: { email: true } } },
+    });
+
+    const modelUsage = await prisma.message.groupBy({
+      by: ['role'],
+      _count: true,
+    });
+
+    res.json({
+      totalUsers,
+      totalThreads,
+      totalMessages,
+      totalFeedbacks,
+      recentThreads,
+      modelUsage,
+    });
+  } catch (err) {
+    logger.error(`Admin stats failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to fetch stats.' });
+  }
+});
+
+app.delete('/api/admin/threads/:threadId', requireAuth, requireAdmin, async (req, res) => {
+  const { threadId } = req.params;
+
+  try {
+    await prisma.thread.delete({ where: { id: threadId } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(`Admin thread delete failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to delete thread.' });
   }
 });
 

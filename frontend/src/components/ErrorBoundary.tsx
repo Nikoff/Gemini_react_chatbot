@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCcw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
+  t: (key: string) => string;
 }
 
 interface State {
@@ -26,6 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const { t } = this.props;
       return (
         <div style={{
           display: 'flex',
@@ -40,9 +42,9 @@ export class ErrorBoundary extends Component<Props, State> {
           fontFamily: 'system-ui, sans-serif',
         }}>
           <AlertTriangle size={48} color="#f59e0b" style={{ marginBottom: '1rem' }} />
-          <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Something went wrong</h2>
+          <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>{t('error.title')}</h2>
           <p style={{ color: '#94a3b8', margin: '0 0 1.5rem 0', maxWidth: '400px' }}>
-            The application encountered an unexpected error. You can try refreshing the page.
+            {t('error.desc')}
           </p>
           <pre style={{
             backgroundColor: '#1e293b',
@@ -72,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
             }}
           >
             <RefreshCcw size={16} />
-            Reload Page
+            {t('error.reload')}
           </button>
         </div>
       );

@@ -1155,6 +1155,177 @@
   color: #10b981;
 }
 
+.admin-dashboard {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.admin-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-stat-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.admin-stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #f8fafc;
+}
+
+.admin-stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.admin-section {
+  margin-bottom: 1.5rem;
+}
+
+.admin-section h3 {
+  font-size: 1rem;
+  color: #f8fafc;
+  margin-bottom: 0.75rem;
+}
+
+.admin-user-list, .admin-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-user-row, .admin-thread-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+}
+
+.admin-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-user-email {
+  color: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.admin-user-stats {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.admin-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-role-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.admin-role-badge.admin {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.admin-role-badge.user {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+}
+
+.admin-toggle-btn {
+  background: none;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.admin-toggle-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.admin-thread-title {
+  color: #f8fafc;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.admin-thread-user {
+  color: #64748b;
+  font-size: 0.75rem;
+  margin: 0 1rem;
+}
+
+.admin-thread-date {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tool-call-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.tool-call-name {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.tool-call-result {
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
 /* Feedback Actions */
 .feedback-actions {
   display: flex;

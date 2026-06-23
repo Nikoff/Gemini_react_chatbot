@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Send, ImagePlus, Mic, Square, X } from 'lucide-react';
+import { useI18n } from '../context/I18nContext';
 
 interface Props {
   input: string;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendingAudio, isRecording, fileInputRef, onImageSelect, onClearImage, onClearAudio, onStartRecording, onStopRecording }: Props) {
+  const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -57,14 +59,14 @@ export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendin
   };
 
   const canSend = input.trim() || pendingImage || pendingAudio;
-  const placeholder = pendingImage ? 'Add a caption...' : pendingAudio ? 'Add a caption (optional)...' : 'Type a message...';
+  const placeholder = pendingImage ? t('chat.placeholderImage') : pendingAudio ? t('chat.placeholderAudio') : t('chat.placeholder');
 
   return (
     <footer className={`chat-input-sticky-footer ${isDragging ? 'drag-active' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {isDragging && (
         <div className="drag-overlay">
           <ImagePlus size={32} />
-          <span>Drop image here</span>
+          <span>{t('chat.dropImage')}</span>
         </div>
       )}
       {pendingImage && (
@@ -81,7 +83,7 @@ export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendin
             <button type="button" className="audio-remove-btn" onClick={onClearAudio}>
               <X size={14} />
             </button>
-            <span className="audio-preview-label">Voice message ready</span>
+            <span className="audio-preview-label">{t('chat.voiceReady')}</span>
           </div>
           <button className="message-submit-action-button" onClick={onSubmit} disabled={!canSend}>
             <Send size={16} />

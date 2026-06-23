@@ -11,6 +11,7 @@ datasource db {
 model User {
   id        String   @id
   email     String   @unique
+  role      String   @default("user")
   threads   Thread[]
   createdAt DateTime @default(now())
 }

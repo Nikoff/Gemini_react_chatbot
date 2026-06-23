@@ -7,6 +7,7 @@ import { NeuralCanvas } from './components/NeuralCanvas';
 import { BlackHoleCanvas } from './components/BlackHoleCanvas';
 import { LivingCanvas } from './components/LivingCanvas';
 import { AuthScreen } from './components/AuthScreen';
+import { AdminDashboard } from './components/AdminDashboard';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatMessages } from './components/ChatMessages';
@@ -24,6 +25,7 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [input, setInput] = useState('');
+  const [showAdmin, setShowAdmin] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
@@ -79,6 +81,8 @@ export default function App() {
       console.error('Failed to update system prompt:', err);
     }
   };
+
+  const handleCreateThread = async () => {
     if (!session) return;
     const thread = await createThread(session.access_token, `Chat ${new Date().toLocaleDateString()}`);
     if (thread) setMessages([]);
@@ -99,6 +103,7 @@ export default function App() {
         onRenameThread={(id, title) => renameThread(session.access_token, id, title)}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onSystemPromptChange={handleSystemPromptChange}
+        onOpenAdmin={() => setShowAdmin(true)}
       />
 
       <main className="chat-interface-stream-pane">
@@ -137,6 +142,7 @@ export default function App() {
       </main>
 
       <StatsDashboard />
+      {showAdmin && <AdminDashboard session={session} onClose={() => setShowAdmin(false)} />}
       {theme === 'living-canvas' && <LivingCanvas />}
       {theme === 'neural' && <NeuralCanvas />}
       {theme === 'blackhole' && <BlackHoleCanvas />}

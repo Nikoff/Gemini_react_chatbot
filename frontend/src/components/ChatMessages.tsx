@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, ThumbsUp, ThumbsDown, Pencil, X, Check, RefreshCcw } from 'lucide-react';
+import { Bot, User, ThumbsUp, ThumbsDown, Pencil, X, Check, RefreshCcw, Wrench } from 'lucide-react';
+import { useI18n } from '../context/I18nContext';
 
-interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
+interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; toolCalls?: { name: string; args: any; result: string }[]; }
 
 interface Props {
   messages: ChatMessage[];
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegenerate }: Props) {
+  const { t } = useI18n();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
@@ -21,10 +23,10 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegen
     <div className="chat-messages-scroll-area">
       {messages.length === 0 ? (
         <div className="empty-state-welcome">
-          <Bot size={48} className="icon-subtle" />
-          <h2>How can I assist your workflow today?</h2>
-          <p>Select an LLM engine above to deploy complex processing arrays.</p>
-        </div>
+              <Bot size={48} className="icon-subtle" />
+              <h2>{t('chat.empty')}</h2>
+              <p>{t('chat.emptySub')}</p>
+            </div>
       ) : (
         messages.map((msg, index) => (
           <div key={msg.id || index} className={`message-bubble-wrapper ${msg.role === 'user' ? 'user-type' : 'ai-type'}`}>
@@ -51,15 +53,26 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegen
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    {msg.image && (
-                      <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} alt="Uploaded" className="message-image" />
+                    ) : (
+                      <>
+                        {msg.image && (
+                          <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} alt="Uploaded" className="message-image" />
+                        )}
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <div className="tool-calls">
+                            {msg.toolCalls.map((tc, i) => (
+                              <div key={i} className="tool-call-item">
+                                <Wrench size={12} />
+                                <span className="tool-call-name">{tc.name}</span>
+                                <span className="tool-call-result">{tc.result}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                        {msg.editedAt && <span className="edited-badge">(edited)</span>}
+                      </>
                     )}
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
-                    {msg.editedAt && <span className="edited-badge">(edited)</span>}
-                  </>
-                )}
               </div>
             </div>
             {msg.role === 'user' && msg.id && editingId !== msg.id && (
