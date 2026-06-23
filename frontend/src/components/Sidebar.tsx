@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { MessageSquare, Plus, Menu, X, LogOut, Pencil } from 'lucide-react';
+import { MessageSquare, Plus, Menu, X, LogOut, Pencil, Settings } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-interface Thread { id: string; title: string; createdAt: string; }
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+interface Thread { id: string; title: string; createdAt: string; systemPrompt?: string | null; }
 
 interface Props {
   threads: Thread[];
@@ -14,11 +16,27 @@ interface Props {
   onDeleteThread: (id: string) => void;
   onRenameThread: (id: string, title: string) => void;
   onToggleSidebar: () => void;
+  onSystemPromptChange: (threadId: string, prompt: string | null) => void;
 }
 
-export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSelectThread, onCreateThread, onDeleteThread, onRenameThread, onToggleSidebar }: Props) {
+export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSelectThread, onCreateThread, onDeleteThread, onRenameThread, onToggleSidebar, onSystemPromptChange }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renamingText, setRenamingText] = useState('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [promptText, setPromptText] = useState('');
+
+  const currentThread = threads.find(t => t.id === currentThreadId);
+
+  const handleOpenPrompt = () => {
+    setPromptText(currentThread?.systemPrompt || '');
+    setShowPromptModal(true);
+  };
+
+  const handleSavePrompt = async () => {
+    if (!currentThreadId || !session) return;
+    await onSystemPromptChange(currentThreadId, promptText || null);
+    setShowPromptModal(false);
+  };
 
   return (
     <aside className={`navigation-sidebar ${isSidebarOpen ? 'expanded' : 'collapsed'}`}>
@@ -94,6 +112,12 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
 
       {isSidebarOpen && (
         <div className="user-profile-cabinet-footer">
+          {currentThreadId && (
+            <button className="system-prompt-btn" onClick={handleOpenPrompt} title="Set system prompt">
+              <Settings size={16} />
+              <span>System Prompt</span>
+            </button>
+          )}
           <div className="user-avatar-placeholder">
             {session.user?.email?.[0].toUpperCase()}
           </div>
@@ -102,6 +126,31 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
             <button className="logout-action-text-btn" onClick={() => supabase.auth.signOut()}>
               <LogOut size={12} /> Sign Out
             </button>
+          </div>
+        </div>
+      )}
+
+      {showPromptModal && (
+        <div className="modal-overlay" onClick={() => setShowPromptModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>System Prompt</h3>
+              <button className="modal-close" onClick={() => setShowPromptModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="modal-description">Instructions for the AI in this conversation. The AI will follow these instructions for all messages in this thread.</p>
+            <textarea
+              className="modal-textarea"
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              placeholder="e.g. You are a helpful coding assistant. Always respond in Russian. Be concise..."
+              rows={6}
+            />
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={() => setShowPromptModal(false)}>Cancel</button>
+              <button className="modal-save" onClick={handleSavePrompt}>Save</button>
+            </div>
           </div>
         </div>
       )}

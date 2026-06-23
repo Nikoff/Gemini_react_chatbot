@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Send, ImagePlus, Mic, Square, X } from 'lucide-react';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 
 export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendingAudio, isRecording, fileInputRef, onImageSelect, onClearImage, onClearAudio, onStartRecording, onStopRecording }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -33,11 +34,39 @@ export function ChatInput({ input, onInputChange, onSubmit, pendingImage, pendin
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => setIsDragging(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const event = { target: { files: [file], value: '' } } as any;
+        onImageSelect(event);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const canSend = input.trim() || pendingImage || pendingAudio;
   const placeholder = pendingImage ? 'Add a caption...' : pendingAudio ? 'Add a caption (optional)...' : 'Type a message...';
 
   return (
-    <footer className="chat-input-sticky-footer">
+    <footer className={`chat-input-sticky-footer ${isDragging ? 'drag-active' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+      {isDragging && (
+        <div className="drag-overlay">
+          <ImagePlus size={32} />
+          <span>Drop image here</span>
+        </div>
+      )}
       {pendingImage && (
         <div className="image-preview-container">
           <img src={pendingImage.preview} alt="Preview" className="image-preview" />

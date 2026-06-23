@@ -118,5 +118,58 @@ export function useChat(session: any, trackRequest: (i: number, o: number, t: nu
     }
   }, []);
 
-  return { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback };
+  const regenerate = useCallback(async (token: string, messageId: string, threadId: string, model: string) => {
+    setIsThinking(true);
+    try {
+      const response = await fetch(`${API_URL}/api/threads/${threadId}/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ messageId, model })
+      });
+
+      if (!response.ok) return;
+
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let aiText = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'chunk') {
+              aiText += event.text;
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === 'ai') {
+                  updated[lastIdx] = { ...updated[lastIdx], text: aiText };
+                } else {
+                  updated.push({ role: 'ai', text: aiText });
+                }
+                return updated;
+              });
+            } else if (event.type === 'done') {
+              // done
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error('Regenerate failed:', err);
+    } finally {
+      setIsThinking(false);
+    }
+  }, []);
+
+  return { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback, regenerate };
 }

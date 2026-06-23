@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, User, ThumbsUp, ThumbsDown, Pencil, X, Check } from 'lucide-react';
+import { Bot, User, ThumbsUp, ThumbsDown, Pencil, X, Check, RefreshCcw } from 'lucide-react';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
 
@@ -10,9 +10,10 @@ interface Props {
   isThinking: boolean;
   onFeedback: (messageId: string, rating: number) => void;
   onEdit: (messageId: string, content: string) => void;
+  onRegenerate: (messageId: string) => void;
 }
 
-export function ChatMessages({ messages, isThinking, onFeedback, onEdit }: Props) {
+export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegenerate }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
@@ -70,6 +71,9 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit }: Props
             )}
             {msg.role === 'ai' && msg.id && (
               <div className="feedback-actions">
+                <button className="feedback-btn" onClick={() => onRegenerate(msg.id!)} title="Regenerate">
+                  <RefreshCcw size={14} />
+                </button>
                 <button className={`feedback-btn ${msg.feedback?.rating === 1 ? 'active' : ''}`} onClick={() => onFeedback(msg.id!, 1)} title="Good">
                   <ThumbsUp size={14} />
                 </button>

@@ -16,13 +16,14 @@ model User {
 }
 
 model Thread {
-  id        String    @id @default(uuid())
-  userId    String
-  title     String    @default("New Conversation")
-  user      User      @relation(fields: [userId], references: [id])
-  messages  Message[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String     @id @default(uuid())
+  userId       String
+  title        String     @default("New Conversation")
+  systemPrompt String?
+  user         User       @relation(fields: [userId], references: [id])
+  messages     Message[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([userId])
 }

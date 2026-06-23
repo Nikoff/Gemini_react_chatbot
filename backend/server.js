@@ -426,6 +426,123 @@ app.post('/api/chat/stream', requireAuth, chatLimiter, async (req, res) => {
   }
 });
 
+// --- System Prompt ---
+
+const systemPromptSchema = z.object({
+  systemPrompt: z.string().max(5000).nullable(),
+});
+
+app.put('/api/threads/:threadId/system-prompt', requireAuth, async (req, res) => {
+  const parsed = systemPromptSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request body.' });
+  }
+
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    const updated = await prisma.thread.update({
+      where: { id: threadId },
+      data: { systemPrompt: parsed.data.systemPrompt },
+    });
+
+    res.json({ systemPrompt: updated.systemPrompt });
+  } catch (err) {
+    logger.error(`PUT /api/threads/:threadId/system-prompt failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to update system prompt.' });
+  }
+});
+
+// --- Regenerate from message (branching) ---
+
+app.post('/api/threads/:threadId/regenerate', requireAuth, chatLimiter, async (req, res) => {
+  const { threadId } = req.params;
+  const { messageId, model } = req.body;
+  const targetModel = model || 'gemini-2.5-flash';
+
+  if (!ALLOWED_MODELS.includes(targetModel)) {
+    return res.status(400).json({ error: 'Model not allowed.' });
+  }
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    const allMessages = await prisma.message.findMany({
+      where: { threadId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const branchIndex = allMessages.findIndex(m => m.id === messageId);
+    if (branchIndex === -1) {
+      return res.status(404).json({ error: 'Message not found.' });
+    }
+
+    const messagesBefore = allMessages.slice(0, branchIndex);
+    await prisma.message.deleteMany({
+      where: { threadId, id: { in: allMessages.slice(branchIndex).map(m => m.id) } },
+    });
+
+    const formattedHistory = messagesBefore.map(msg => ({
+      role: msg.role === 'model' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
+
+    const systemInstruction = thread.systemPrompt ? [{ text: thread.systemPrompt }] : undefined;
+
+    const stream = await ai.models.generateContentStream({
+      model: targetModel,
+      contents: formattedHistory,
+      ...(systemInstruction && { config: { systemInstruction } }),
+    });
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    let fullText = '';
+    let promptTokens = 0;
+    let candidatesTokens = 0;
+
+    for await (const chunk of stream) {
+      const chunkText = chunk.text || '';
+      if (chunkText) {
+        fullText += chunkText;
+        res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
+      }
+      if (chunk.usageMetadata) {
+        promptTokens = chunk.usageMetadata.promptTokenCount || 0;
+        candidatesTokens = chunk.usageMetadata.candidatesTokenCount || 0;
+      }
+    }
+
+    if (fullText) {
+      await prisma.message.create({
+        data: { threadId, role: 'model', content: fullText, tokens: candidatesTokens },
+      });
+      await prisma.thread.update({ where: { id: threadId }, data: { updatedAt: new Date() } });
+    }
+
+    res.write(`data: ${JSON.stringify({ type: 'done', usage: { promptTokens, candidatesTokens, totalTokens: promptTokens + candidatesTokens }, modelUsed: targetModel })}\n\n`);
+    res.end();
+
+  } catch (error) {
+    logger.error(`Regenerate failed: ${error.message}`);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'Regeneration failed.' })}\n\n`);
+    res.end();
+  }
+});
+
 // --- Feedback / Rating ---
 
 app.post('/api/messages/:messageId/feedback', requireAuth, async (req, res) => {

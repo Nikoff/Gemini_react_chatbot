@@ -27,7 +27,7 @@ export default function App() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
-  const { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback } = useChat(session, trackRequest);
+  const { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback, regenerate } = useChat(session, trackRequest);
   const { isRecording, pendingAudio, startRecording, stopRecording, clearAudio } = useVoiceRecording();
   const { pendingImage, fileInputRef, handleImageSelect, clearImage } = useImageUpload();
 
@@ -66,7 +66,19 @@ export default function App() {
     clearAudio();
   };
 
-  const handleCreateThread = async () => {
+  const handleSystemPromptChange = async (threadId: string, prompt: string | null) => {
+    if (!session) return;
+    try {
+      await fetch(`${API_URL}/api/threads/${threadId}/system-prompt`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ systemPrompt: prompt })
+      });
+      setThreads(prev => prev.map(t => t.id === threadId ? { ...t, systemPrompt: prompt } : t));
+    } catch (err) {
+      console.error('Failed to update system prompt:', err);
+    }
+  };
     if (!session) return;
     const thread = await createThread(session.access_token, `Chat ${new Date().toLocaleDateString()}`);
     if (thread) setMessages([]);
@@ -86,6 +98,7 @@ export default function App() {
         onDeleteThread={(id) => deleteThread(session.access_token, id)}
         onRenameThread={(id, title) => renameThread(session.access_token, id, title)}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        onSystemPromptChange={handleSystemPromptChange}
       />
 
       <main className="chat-interface-stream-pane">
@@ -103,6 +116,7 @@ export default function App() {
           isThinking={isThinking}
           onFeedback={(id, rating) => sendFeedback(session.access_token, id, rating)}
           onEdit={(id, text) => editMessage(session.access_token, id, text)}
+          onRegenerate={(id) => regenerate(session.access_token, id, currentThreadId!, selectedModel)}
         />
         <div ref={chatEndRef} />
 
