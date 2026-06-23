@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bot, Play, Pause, CheckCircle, XCircle, Clock, Plus, X, Trash2, Cpu, Zap } from 'lucide-react';
-import { useI18n } from '../context/I18nContext';
+import { Bot, Play, CheckCircle, XCircle, Clock, Plus, X, Trash2, Cpu, Zap } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -43,7 +42,6 @@ interface Props {
 }
 
 export function AgentDashboard({ session, isOpen, onClose }: Props) {
-  const { t } = useI18n();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeRuns, setActiveRuns] = useState<AgentRun[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);

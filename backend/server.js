@@ -47,6 +47,7 @@ require('./routes/messages')(app);
 require('./routes/generate')(app, { checkSubscription, chatLimiter });
 require('./routes/workflows')(app);
 require('./routes/agents')(app);
+require('./routes/marketplace')(app);
 
 app.use((req, res, next) => {
   const startTime = process.hrtime();

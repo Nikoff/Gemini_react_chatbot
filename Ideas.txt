@@ -1,0 +1,2 @@
+1. Button to delete "empty" or old, unused chat from the left pannel.
+2. Possibility to choose use/choose several Google API keys to send.

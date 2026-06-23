@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../context/I18nContext';
-import { Palette, X, Image, GitBranch, Bot } from 'lucide-react';
+import { Palette, X, Image, GitBranch, Bot, Store } from 'lucide-react';
 
 interface Props {
   onOpenGeneration?: () => void;
   onOpenWorkflowEditor?: () => void;
   onOpenAgentDashboard?: () => void;
+  onOpenMarketplace?: () => void;
 }
 
-export function ThemeSwitcher({ onOpenGeneration, onOpenWorkflowEditor, onOpenAgentDashboard }: Props) {
+export function ThemeSwitcher({ onOpenGeneration, onOpenWorkflowEditor, onOpenAgentDashboard, onOpenMarketplace }: Props) {
   const { theme, setTheme, themes } = useTheme();
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
@@ -17,6 +18,11 @@ export function ThemeSwitcher({ onOpenGeneration, onOpenWorkflowEditor, onOpenAg
   return (
     <div className="theme-switcher">
       <div className="theme-switcher-buttons">
+        {onOpenMarketplace && (
+          <button className="theme-toggle-btn marketplace-btn" onClick={onOpenMarketplace} title="Marketplace">
+            <Store size={18} />
+          </button>
+        )}
         {onOpenAgentDashboard && (
           <button className="theme-toggle-btn agent-btn" onClick={onOpenAgentDashboard} title="Agent Dashboard">
             <Bot size={18} />

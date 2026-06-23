@@ -81,6 +81,63 @@ module.exports = function(app) {
     }
   });
 
+  const CREDIT_PACKS = {
+    starter: { credits: 500, price: 500, name: '500 Credits' },
+    pro: { credits: 2000, price: 1500, name: '2000 Credits' },
+    mega: { credits: 10000, price: 4000, name: '10000 Credits' },
+  };
+
+  app.get('/api/credits/packs', requireAuth, async (req, res) => {
+    res.json(CREDIT_PACKS);
+  });
+
+  app.post('/api/credits/purchase', requireAuth, async (req, res) => {
+    const { packId } = req.body;
+
+    if (!CREDIT_PACKS[packId]) {
+      return res.status(400).json({ error: 'Invalid pack ID.' });
+    }
+
+    const pack = CREDIT_PACKS[packId];
+
+    try {
+      let user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+
+      if (!user.stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          email: req.user.email,
+          metadata: { userId: req.user.sub },
+        });
+        user = await prisma.user.update({
+          where: { id: req.user.sub },
+          data: { stripeCustomerId: customer.id },
+        });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: user.stripeCustomerId,
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: { name: `Nikoff AI - ${pack.name}` },
+            unit_amount: pack.price,
+          },
+          quantity: 1,
+        }],
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/?credits=success`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/?credits=canceled`,
+        metadata: { userId: req.user.sub, credits: pack.credits, type: 'credit_pack' },
+      });
+
+      res.json({ sessionId: session.id, url: session.url });
+    } catch (err) {
+      logger.error(`Credit purchase failed: ${err.message}`);
+      res.status(500).json({ error: 'Failed to create checkout session.' });
+    }
+  });
+
   app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -98,48 +155,61 @@ module.exports = function(app) {
           const session = event.data.object;
           const userId = session.metadata.userId;
 
-          await prisma.subscription.upsert({
-            where: { userId },
-            update: {
-              stripeSubscriptionId: session.subscription,
-              stripePriceId: session.metadata.priceId,
-              status: 'active',
-            },
-            create: {
-              userId,
-              stripeSubscriptionId: session.subscription,
-              stripePriceId: session.metadata.priceId,
-              status: 'active',
-            },
-          });
-          logger.info(`Subscription activated for user ${userId}`);
+          if (session.metadata.type === 'credit_pack') {
+            const credits = parseInt(session.metadata.credits) || 0;
+            if (credits > 0) {
+              const { addCredits } = require('../services/credits');
+              await addCredits(userId, credits, 'credit_purchase');
+              logger.info(`Added ${credits} credits to user ${userId} via Stripe`);
+            }
+          } else {
+            await prisma.subscription.upsert({
+              where: { userId },
+              update: {
+                stripeSubscriptionId: session.subscription,
+                stripePriceId: session.metadata.priceId,
+                status: 'active',
+              },
+              create: {
+                userId,
+                stripeSubscriptionId: session.subscription,
+                stripePriceId: session.metadata.priceId,
+                status: 'active',
+              },
+            });
+            logger.info(`Subscription activated for user ${userId}`);
+          }
           break;
         }
 
         case 'invoice.payment_succeeded': {
           const invoice = event.data.object;
-          const subscription = await prisma.subscription.findFirst({
-            where: { stripeSubscriptionId: invoice.subscription },
-          });
-          if (subscription) {
-            await prisma.subscription.update({
-              where: { id: subscription.id },
-              data: { status: 'active', currentPeriodEnd: new Date(invoice.period_end * 1000) },
+          if (invoice.subscription) {
+            const subscription = await prisma.subscription.findFirst({
+              where: { stripeSubscriptionId: invoice.subscription },
             });
+            if (subscription) {
+              await prisma.subscription.update({
+                where: { id: subscription.id },
+                data: { status: 'active', currentPeriodEnd: new Date(invoice.period_end * 1000) },
+              });
+            }
           }
           break;
         }
 
         case 'invoice.payment_failed': {
           const invoice = event.data.object;
-          const subscription = await prisma.subscription.findFirst({
-            where: { stripeSubscriptionId: invoice.subscription },
-          });
-          if (subscription) {
-            await prisma.subscription.update({
-              where: { id: subscription.id },
-              data: { status: 'past_due' },
+          if (invoice.subscription) {
+            const subscription = await prisma.subscription.findFirst({
+              where: { stripeSubscriptionId: invoice.subscription },
             });
+            if (subscription) {
+              await prisma.subscription.update({
+                where: { id: subscription.id },
+                data: { status: 'past_due' },
+              });
+            }
           }
           break;
         }

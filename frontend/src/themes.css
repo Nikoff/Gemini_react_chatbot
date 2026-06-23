@@ -971,6 +971,16 @@
   background: linear-gradient(135deg, #059669, #047857);
 }
 
+.theme-toggle-btn.marketplace-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #f59e0b;
+  color: white;
+}
+
+.theme-toggle-btn.marketplace-btn:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
 .theme-switcher-header {
   display: flex;
   align-items: center;

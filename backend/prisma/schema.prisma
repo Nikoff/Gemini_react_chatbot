@@ -21,6 +21,9 @@ model User {
   workflowExecutions WorkflowExecution[]
   agents         Agent[]
   agentRuns      AgentRun[]
+  marketplaceItems MarketplaceItem[]
+  marketplacePurchases MarketplacePurchase[]
+  marketplaceReviews MarketplaceReview[]
   creditTransactions CreditTransaction[]
   createdAt      DateTime       @default(now())
 }
@@ -193,4 +196,59 @@ model AgentRun {
   @@index([userId])
   @@index([status])
   @@index([parentRunId])
+}
+
+model MarketplaceItem {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  type        String   // "workflow" | "agent_template" | "style_preset" | "lora_pack" | "automation_template"
+  category    String?
+  price       Int      @default(0) // 0 = free, otherwise credits
+  content     Json     // the actual payload (workflow graph, agent config, etc.)
+  version     Int      @default(1)
+  downloads   Int      @default(0)
+  rating      Float    @default(0)
+  ratingCount Int      @default(0)
+  status      String   @default("draft") // draft | pending | published | rejected
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+  purchases   MarketplacePurchase[]
+  reviews     MarketplaceReview[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([category])
+}
+
+model MarketplacePurchase {
+  id        String   @id @default(uuid())
+  itemId    String
+  userId    String
+  creditsSpent Int
+  createdAt DateTime @default(now())
+  item      MarketplaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([itemId, userId])
+  @@index([itemId])
+  @@index([userId])
+}
+
+model MarketplaceReview {
+  id        String   @id @default(uuid())
+  itemId    String
+  userId    String
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  item      MarketplaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([itemId, userId])
+  @@index([itemId])
 }

@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Bot, Check, Zap, Users, ArrowRight, Star } from 'lucide-react';
+import { Bot, Check, Zap, Users, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useI18n } from '../context/I18nContext';
 
@@ -81,7 +80,7 @@ export function LandingPage({ onLogin }: Props) {
         const { url } = await res.json();
         window.location.href = url;
       }
-    } catch (err) {
+    } catch {
       console.error('Checkout failed:', err);
     }
   };

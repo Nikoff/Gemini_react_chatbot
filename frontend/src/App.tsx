@@ -12,6 +12,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { GenerationPanel } from './components/GenerationPanel';
 import { WorkflowEditor } from './components/WorkflowEditor';
 import { AgentDashboard } from './components/AgentDashboard';
+import { MarketplaceBrowser } from './components/MarketplaceBrowser';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatMessages } from './components/ChatMessages';
@@ -36,6 +37,7 @@ export default function App() {
   const [showGeneration, setShowGeneration] = useState(false);
   const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
   const [showAgentDashboard, setShowAgentDashboard] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
@@ -162,10 +164,11 @@ export default function App() {
       <GenerationPanel session={session} isOpen={showGeneration} onClose={() => setShowGeneration(false)} />
       <WorkflowEditor session={session} isOpen={showWorkflowEditor} onClose={() => setShowWorkflowEditor(false)} />
       <AgentDashboard session={session} isOpen={showAgentDashboard} onClose={() => setShowAgentDashboard(false)} />
+      <MarketplaceBrowser session={session} isOpen={showMarketplace} onClose={() => setShowMarketplace(false)} />
       {theme === 'living-canvas' && <LivingCanvas />}
       {theme === 'neural' && <NeuralCanvas />}
       {theme === 'blackhole' && <BlackHoleCanvas />}
-      <ThemeSwitcher onOpenGeneration={() => setShowGeneration(true)} onOpenWorkflowEditor={() => setShowWorkflowEditor(true)} onOpenAgentDashboard={() => setShowAgentDashboard(true)} />
+      <ThemeSwitcher onOpenGeneration={() => setShowGeneration(true)} onOpenWorkflowEditor={() => setShowWorkflowEditor(true)} onOpenAgentDashboard={() => setShowAgentDashboard(true)} onOpenMarketplace={() => setShowMarketplace(true)} />
     </div>
   );
 }
