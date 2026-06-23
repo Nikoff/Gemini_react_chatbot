@@ -65,7 +65,15 @@ const threadSchema = z.object({
 const chatSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'ai']),
-    text: z.string().min(1).max(10000),
+    text: z.string().min(0).max(10000),
+    image: z.object({
+      data: z.string().max(10485760),
+      mimeType: z.string(),
+    }).optional(),
+    audio: z.object({
+      data: z.string().max(10485760),
+      mimeType: z.string(),
+    }).optional(),
   })).min(1).max(MAX_MESSAGES),
   model: z.string().optional(),
   threadId: z.string().uuid().optional(),
@@ -178,6 +186,55 @@ app.get('/api/threads/:threadId/messages', requireAuth, async (req, res) => {
   }
 });
 
+// --- Delete Thread ---
+
+app.delete('/api/threads/:threadId', requireAuth, async (req, res) => {
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    await prisma.thread.delete({ where: { id: threadId } });
+
+    logger.info(`Thread deleted: ${threadId} by user ${req.user.sub}`);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(`DELETE /api/threads/:threadId failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to delete thread.' });
+  }
+});
+
+// --- Rename Thread ---
+
+app.put('/api/threads/:threadId', requireAuth, async (req, res) => {
+  const parsed = threadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request body.' });
+  }
+
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    const updated = await prisma.thread.update({
+      where: { id: threadId },
+      data: { title: parsed.data.title || thread.title },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    logger.error(`PUT /api/threads/:threadId failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to rename thread.' });
+  }
+});
+
 // --- Request Logger ---
 
 app.use((req, res, next) => {
@@ -214,10 +271,30 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   logger.info(`Chat request from ${req.user.email} | model: ${targetModel}`);
 
   try {
-    const formattedHistory = messages.map(msg => ({
-      role: msg.role === 'ai' ? 'model' : 'user',
-      parts: [{ text: msg.text }],
-    }));
+    const formattedHistory = messages.map(msg => {
+      const parts = [];
+      if (msg.text) parts.push({ text: msg.text });
+      if (msg.image) {
+        parts.push({
+          inlineData: {
+            mimeType: msg.image.mimeType,
+            data: msg.image.data,
+          },
+        });
+      }
+      if (msg.audio) {
+        parts.push({
+          inlineData: {
+            mimeType: msg.audio.mimeType,
+            data: msg.audio.data,
+          },
+        });
+      }
+      return {
+        role: msg.role === 'ai' ? 'model' : 'user',
+        parts: parts.length ? parts : [{ text: '' }],
+      };
+    });
 
     const requestPayload = { model: targetModel, contents: formattedHistory };
 
@@ -260,6 +337,92 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   } catch (error) {
     logger.error(`Chat failed: ${error.message}`);
     res.status(500).json({ error: 'An error occurred during processing.' });
+  }
+});
+
+// --- Streaming Chat (SSE) ---
+
+app.post('/api/chat/stream', requireAuth, chatLimiter, async (req, res) => {
+  const parsed = chatSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request body.', details: parsed.error.issues });
+  }
+
+  const { messages, model, threadId } = parsed.data;
+  const targetModel = model || 'gemini-2.5-flash';
+  const userId = req.user.sub;
+
+  if (!ALLOWED_MODELS.includes(targetModel)) {
+    return res.status(400).json({ error: 'Model not allowed.' });
+  }
+
+  logger.info(`Stream request from ${req.user.email} | model: ${targetModel}`);
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  try {
+    const formattedHistory = messages.map(msg => {
+      const parts = [];
+      if (msg.text) parts.push({ text: msg.text });
+      if (msg.image) parts.push({ inlineData: { mimeType: msg.image.mimeType, data: msg.image.data } });
+      if (msg.audio) parts.push({ inlineData: { mimeType: msg.audio.mimeType, data: msg.audio.data } });
+      return { role: msg.role === 'ai' ? 'model' : 'user', parts: parts.length ? parts : [{ text: '' }] };
+    });
+
+    const requestPayload = { model: targetModel, contents: formattedHistory };
+    if (targetModel.includes('gemma')) {
+      requestPayload.config = { temperature: 1.0, topP: 0.95, topK: 64 };
+    }
+
+    const stream = await ai.models.generateContentStream(requestPayload);
+
+    let fullText = '';
+    let promptTokens = 0;
+    let candidatesTokens = 0;
+
+    for await (const chunk of stream) {
+      const chunkText = chunk.text || '';
+      if (chunkText) {
+        fullText += chunkText;
+        res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
+      }
+
+      if (chunk.usageMetadata) {
+        promptTokens = chunk.usageMetadata.promptTokenCount || 0;
+        candidatesTokens = chunk.usageMetadata.candidatesTokenCount || 0;
+      }
+    }
+
+    if (threadId && fullText) {
+      const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+      if (thread && thread.userId === userId) {
+        const lastUserMsg = messages[messages.length - 1];
+        if (lastUserMsg) {
+          await prisma.$transaction([
+            prisma.message.createMany({
+              data: [
+                { threadId, role: 'user', content: lastUserMsg.text },
+                { threadId, role: 'model', content: fullText, tokens: candidatesTokens },
+              ],
+            }),
+            prisma.thread.update({ where: { id: threadId }, data: { updatedAt: new Date() } }),
+          ]);
+        }
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ type: 'done', usage: { promptTokens, candidatesTokens, totalTokens: promptTokens + candidatesTokens }, modelUsed: targetModel })}\n\n`);
+    res.end();
+
+  } catch (error) {
+    logger.error(`Stream failed: ${error.message}`);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'An error occurred during processing.' })}\n\n`);
+    res.end();
   }
 });
 

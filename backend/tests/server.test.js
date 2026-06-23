@@ -90,6 +90,22 @@ describe('PUT /api/messages/:messageId', () => {
   });
 });
 
+describe('DELETE /api/threads/:threadId', () => {
+  test('rejects unauthenticated delete', async () => {
+    const res = await request(app).delete('/api/threads/fake-id');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('PUT /api/threads/:threadId', () => {
+  test('rejects unauthenticated rename', async () => {
+    const res = await request(app)
+      .put('/api/threads/fake-id')
+      .send({ title: 'Renamed' });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('GET /api/threads/:threadId/search', () => {
   test('rejects unauthenticated search', async () => {
     const res = await request(app).get('/api/threads/fake-id/search?q=test');
