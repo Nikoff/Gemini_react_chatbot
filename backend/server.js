@@ -20,6 +20,8 @@ const ALLOWED_MODELS = [
 ];
 
 const MAX_MESSAGES = 100;
+const CONTEXT_COMPRESS_THRESHOLD = 80;
+const CONTEXT_KEEP_RECENT = 10;
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
@@ -379,6 +381,20 @@ app.post('/api/chat/stream', requireAuth, chatLimiter, async (req, res) => {
       requestPayload.config = { temperature: 1.0, topP: 0.95, topK: 64 };
     }
 
+    if (formattedHistory.length > CONTEXT_COMPRESS_THRESHOLD && threadId) {
+      try {
+        const toSummarize = formattedHistory.slice(0, formattedHistory.length - CONTEXT_KEEP_RECENT);
+        const convText = toSummarize.map(m => `${m.role}: ${m.parts[0]?.text || ''}`).join('\n');
+        const sumRes = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: `Summarize concisely:\n${convText.substring(0, 3000)}` }] }],
+        });
+        const summary = sumRes.text;
+        formattedHistory.splice(0, toSummarize.length, { role: 'model', parts: [{ text: `[Summary] ${summary}` }] });
+        requestPayload.contents = formattedHistory;
+      } catch {}
+    }
+
     const stream = await ai.models.generateContentStream(requestPayload);
 
     let fullText = '';
@@ -543,6 +559,140 @@ app.post('/api/threads/:threadId/regenerate', requireAuth, chatLimiter, async (r
   }
 });
 
+// --- Conversation Sharing ---
+
+const crypto = require('crypto');
+
+app.post('/api/threads/:threadId/share', requireAuth, async (req, res) => {
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    if (thread.shareToken) {
+      return res.json({ shareToken: thread.shareToken, shareUrl: `/share/${thread.shareToken}` });
+    }
+
+    const shareToken = crypto.randomBytes(16).toString('hex');
+    await prisma.thread.update({ where: { id: threadId }, data: { shareToken } });
+
+    logger.info(`Thread ${threadId} shared with token ${shareToken}`);
+    res.json({ shareToken, shareUrl: `/share/${shareToken}` });
+  } catch (err) {
+    logger.error(`Share failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to share thread.' });
+  }
+});
+
+app.delete('/api/threads/:threadId/share', requireAuth, async (req, res) => {
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    await prisma.thread.update({ where: { id: threadId }, data: { shareToken: null } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(`Unshare failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to unshare thread.' });
+  }
+});
+
+app.get('/api/shared/:shareToken', async (req, res) => {
+  const { shareToken } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({
+      where: { shareToken },
+      include: {
+        messages: { orderBy: { createdAt: 'asc' }, select: { role: true, content: true, createdAt: true } },
+        user: { select: { email: true } },
+      },
+    });
+
+    if (!thread) {
+      return res.status(404).json({ error: 'Shared conversation not found.' });
+    }
+
+    res.json({
+      title: thread.title,
+      author: thread.user.email,
+      createdAt: thread.createdAt,
+      messages: thread.messages.map(m => ({
+        role: m.role === 'model' ? 'ai' : 'user',
+        text: m.content,
+        createdAt: m.createdAt,
+      })),
+    });
+  } catch (err) {
+    logger.error(`Shared view failed: ${err.message}`);
+    res.status(500).json({ error: 'Failed to load shared conversation.' });
+  }
+});
+
+// --- Context Compression ---
+
+app.post('/api/threads/:threadId/compress', requireAuth, async (req, res) => {
+  const { threadId } = req.params;
+
+  try {
+    const thread = await prisma.thread.findUnique({ where: { id: threadId } });
+    if (!thread || thread.userId !== req.user.sub) {
+      return res.status(404).json({ error: 'Thread not found.' });
+    }
+
+    const allMessages = await prisma.message.findMany({
+      where: { threadId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (allMessages.length <= CONTEXT_COMPRESS_THRESHOLD) {
+      return res.json({ compressed: false, messageCount: allMessages.length });
+    }
+
+    const toSummarize = allMessages.slice(0, allMessages.length - CONTEXT_KEEP_RECENT);
+    const toKeep = allMessages.slice(allMessages.length - CONTEXT_KEEP_RECENT);
+
+    const conversationText = toSummarize.map(m =>
+      `${m.role === 'model' ? 'AI' : 'User'}: ${m.content.substring(0, 500)}`
+    ).join('\n');
+
+    const summaryResponse = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: `Summarize this conversation concisely in 2-3 paragraphs, preserving key decisions, facts, and context:\n\n${conversationText}` }] }],
+    });
+
+    const summary = summaryResponse.text;
+    const summaryMsg = toSummarize[0];
+    const summaryTokens = toSummarize.reduce((sum, m) => sum + (m.tokens || 0), 0);
+
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { id: { in: toSummarize.map(m => m.id) } } }),
+      prisma.message.create({
+        data: {
+          threadId,
+          role: 'model',
+          content: `[Conversation Summary]\n${summary}`,
+          tokens: summaryTokens,
+        },
+      }),
+    ]);
+
+    logger.info(`Compressed thread ${threadId}: ${toSummarize.length} messages -> summary`);
+    res.json({ compressed: true, messageCount: allMessages.length, removedCount: toSummarize.length });
+
+  } catch (err) {
+    logger.error(`Compress failed: ${err.message}`);
+    res.status(500).json({ error: 'Compression failed.' });
+  }
+});
+
 // --- Feedback / Rating ---
 
 app.post('/api/messages/:messageId/feedback', requireAuth, async (req, res) => {
@@ -614,7 +764,7 @@ app.put('/api/messages/:messageId', requireAuth, async (req, res) => {
   }
 });
 
-// --- Message Search ---
+// --- Message Search (PostgreSQL Full-Text Search) ---
 
 app.get('/api/threads/:threadId/search', requireAuth, async (req, res) => {
   const parsed = searchSchema.safeParse(req.query);
@@ -631,14 +781,29 @@ app.get('/api/threads/:threadId/search', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Thread not found.' });
     }
 
-    const messages = await prisma.message.findMany({
-      where: {
-        threadId,
-        content: { contains: q, mode: 'insensitive' },
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, role: true, content: true, createdAt: true },
-    });
+    const searchTerm = q.split(/\s+/).filter(Boolean).map(t => `${t}:*`).join(' & ');
+
+    const messages = await prisma.$queryRaw`
+      SELECT id, role, content, "createdAt"
+      FROM "Message"
+      WHERE "threadId" = ${threadId}
+        AND to_tsvector('english', content) @@ plainto_tsquery('english', ${q})
+      ORDER BY "createdAt" ASC
+    `;
+
+    if (messages.length === 0) {
+      const fallback = await prisma.message.findMany({
+        where: { threadId, content: { contains: q, mode: 'insensitive' } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, role: true, content: true, createdAt: true },
+      });
+      return res.json(fallback.map(m => ({
+        id: m.id,
+        role: m.role === 'model' ? 'ai' : 'user',
+        text: m.content,
+        createdAt: m.createdAt,
+      })));
+    }
 
     res.json(messages.map(m => ({
       id: m.id,

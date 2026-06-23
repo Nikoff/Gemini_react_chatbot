@@ -1114,8 +1114,45 @@
 }
 
 .export-btn:hover {
-  background-color: #1e293b;
-  color: #f8fafc;
+  color: var(--text-primary);
+  background: var(--border-color);
+}
+
+.share-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-accent);
+  border-radius: 6px;
+  padding: 0.2rem 0.4rem;
+}
+
+.share-url-input {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  width: 180px;
+  outline: none;
+}
+
+.share-copy-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  border-radius: 4px;
+}
+
+.share-copy-btn:hover {
+  color: var(--text-primary);
+}
+
+.share-copy-btn svg {
+  color: #10b981;
 }
 
 /* Feedback Actions */

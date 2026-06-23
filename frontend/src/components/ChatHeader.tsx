@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Menu, Search, X, Download } from 'lucide-react';
+import { Menu, Search, X, Download, Share2, Copy, Check } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; }
 
@@ -17,6 +19,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onToggleSidebar, currentThreadId, session }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || !currentThreadId || !session) return;
@@ -47,6 +51,30 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
       }
     } catch (err) {
       console.error('Export failed:', err);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!currentThreadId || !session) return;
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/share`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShareUrl(`${window.location.origin}${data.shareUrl}`);
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -86,7 +114,19 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
           <button className="export-btn" onClick={() => handleExport('md')} title="Export as Markdown">
             <Download size={16} />
           </button>
+          <button className="export-btn" onClick={handleShare} title="Share conversation">
+            <Share2 size={16} />
+          </button>
         </div>
+
+        {shareUrl && (
+          <div className="share-url-bar">
+            <input type="text" readOnly value={shareUrl} className="share-url-input" />
+            <button className="share-copy-btn" onClick={handleCopyLink}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+        )}
 
         <select value={selectedModel} onChange={(e) => onModelChange(e.target.value)} className="model-selector-dropdown">
           <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
