@@ -5,7 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    // This forces everything to use the main frontend copy of React
     dedupe: ['react', 'react-dom'],
+  },
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: ['tcp-pvc-prayers-southeast.trycloudflare.com'],
   },
 })

@@ -38,7 +38,7 @@ export function useChat(session: any, trackRequest: (i: number, o: number, t: nu
     setIsThinking(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/chat/stream`, {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ messages: updatedMessages, model, threadId })

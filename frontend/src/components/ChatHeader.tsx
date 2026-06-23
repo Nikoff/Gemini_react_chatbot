@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Menu, Search, X, Download, Share2, Copy, Check } from 'lucide-react';
+import { useI18n } from '../context/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -14,9 +15,8 @@ interface Props {
   session: any;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onToggleSidebar, currentThreadId, session }: Props) {
+  const { locale, setLocale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChatMessage[] | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -86,7 +86,23 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
         </button>
       )}
       <div className="brand-logo-zone">
-        <span className="brand-title">Nikoff Free Chatbot</span>
+        <span className="brand-title">{t('header.title')}</span>
+        <div className="lang-flags">
+          <button
+            className={`lang-flag-btn ${locale === 'en' ? 'active' : ''}`}
+            onClick={() => setLocale('en')}
+            title="English"
+          >
+            <img src="https://flagcdn.com/w40/gb.png" alt="EN" className="flag-img" />
+          </button>
+          <button
+            className={`lang-flag-btn ${locale === 'ru' ? 'active' : ''}`}
+            onClick={() => setLocale('ru')}
+            title="Russian"
+          >
+            <img src="https://flagcdn.com/w40/ru.png" alt="RU" className="flag-img" />
+          </button>
+        </div>
       </div>
 
       <div className="header-actions">
@@ -97,7 +113,7 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="Search messages..."
+            placeholder={t('header.search')}
             className="search-input"
           />
           {searchResults && (
@@ -108,13 +124,13 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
         </div>
 
         <div className="export-buttons">
-          <button className="export-btn" onClick={() => handleExport('json')} title="Export as JSON">
+          <button className="export-btn" onClick={() => handleExport('json')} title={t('header.exportJson')}>
             <Download size={16} />
           </button>
-          <button className="export-btn" onClick={() => handleExport('md')} title="Export as Markdown">
+          <button className="export-btn" onClick={() => handleExport('md')} title={t('header.exportMd')}>
             <Download size={16} />
           </button>
-          <button className="export-btn" onClick={handleShare} title="Share conversation">
+          <button className="export-btn" onClick={handleShare} title={t('header.share')}>
             <Share2 size={16} />
           </button>
         </div>
@@ -129,14 +145,14 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
         )}
 
         <select value={selectedModel} onChange={(e) => onModelChange(e.target.value)} className="model-selector-dropdown">
-          <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
-          <option value="gemini-3.0-flash">Gemini 3.0 Flash</option>
-          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-          <option value="gemma-4-31b-it">Gemma 4 31B (Dense)</option>
-          <option value="gemma-4-26b-a4b-it">Gemma 4 26B (MoE)</option>
+          <option value="gemini-3.5-flash">{t('header.model.gemini35')}</option>
+          <option value="gemini-3.1-flash-lite">{t('header.model.gemini31')}</option>
+          <option value="gemini-3.0-flash">{t('header.model.gemini30')}</option>
+          <option value="gemini-2.5-flash">{t('header.model.gemini25')}</option>
+          <option value="gemini-2.5-flash-lite">{t('header.model.gemini25l')}</option>
+          <option value="gemini-2.0-flash">{t('header.model.gemini20')}</option>
+          <option value="gemma-4-31b-it">{t('header.model.gemma431')}</option>
+          <option value="gemma-4-26b-a4b-it">{t('header.model.gemma426')}</option>
         </select>
       </div>
     </header>

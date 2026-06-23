@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, MessageSquare, ThumbsUp, Shield, X } from 'lucide-react';
+import { useI18n } from '../context/I18nContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -26,13 +27,10 @@ interface Props {
 }
 
 export function AdminDashboard({ session, onClose }: Props) {
+  const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     try {
@@ -48,6 +46,10 @@ export function AdminDashboard({ session, onClose }: Props) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const toggleAdmin = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
@@ -67,12 +69,12 @@ export function AdminDashboard({ session, onClose }: Props) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="admin-dashboard" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><Shield size={20} /> Admin Dashboard</h2>
+          <h2><Shield size={20} /> {t('admin.title')}</h2>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
 
         {loading ? (
-          <div className="admin-loading">Loading...</div>
+          <div className="admin-loading">{t('admin.loading')}</div>
         ) : (
           <>
             {stats && (
@@ -80,34 +82,34 @@ export function AdminDashboard({ session, onClose }: Props) {
                 <div className="admin-stat-card">
                   <Users size={20} className="icon-blue" />
                   <div className="admin-stat-value">{stats.totalUsers}</div>
-                  <div className="admin-stat-label">Users</div>
+                  <div className="admin-stat-label">{t('admin.users')}</div>
                 </div>
                 <div className="admin-stat-card">
                   <MessageSquare size={20} className="icon-emerald" />
                   <div className="admin-stat-value">{stats.totalThreads}</div>
-                  <div className="admin-stat-label">Threads</div>
+                  <div className="admin-stat-label">{t('admin.threads')}</div>
                 </div>
                 <div className="admin-stat-card">
                   <ThumbsUp size={20} className="icon-purple" />
                   <div className="admin-stat-value">{stats.totalMessages}</div>
-                  <div className="admin-stat-label">Messages</div>
+                  <div className="admin-stat-label">{t('admin.messages')}</div>
                 </div>
               </div>
             )}
 
             <div className="admin-section">
-              <h3>Users</h3>
+              <h3>{t('admin.users')}</h3>
               <div className="admin-user-list">
                 {users.map(user => (
                   <div key={user.id} className="admin-user-row">
                     <div className="admin-user-info">
                       <span className="admin-user-email">{user.email}</span>
-                      <span className="admin-user-stats">{user.threadCount} threads, {user.messageCount} messages</span>
+                      <span className="admin-user-stats">{user.threadCount} {t('admin.threads').toLowerCase()}, {user.messageCount} {t('admin.messages').toLowerCase()}</span>
                     </div>
                     <div className="admin-user-actions">
                       <span className={`admin-role-badge ${user.role}`}>{user.role}</span>
                       <button className="admin-toggle-btn" onClick={() => toggleAdmin(user.id, user.role)}>
-                        {user.role === 'admin' ? 'Revoke' : 'Make Admin'}
+                        {user.role === 'admin' ? t('admin.revoke') : t('admin.makeAdmin')}
                       </button>
                     </div>
                   </div>
@@ -117,7 +119,7 @@ export function AdminDashboard({ session, onClose }: Props) {
 
             {stats?.recentThreads && stats.recentThreads.length > 0 && (
               <div className="admin-section">
-                <h3>Recent Threads</h3>
+                <h3>{t('admin.recentThreads')}</h3>
                 <div className="admin-thread-list">
                   {stats.recentThreads.map(thread => (
                     <div key={thread.id} className="admin-thread-row">

@@ -9,6 +9,9 @@ import { LivingCanvas } from './components/LivingCanvas';
 import { AuthScreen } from './components/AuthScreen';
 import { LandingPage } from './components/LandingPage';
 import { AdminDashboard } from './components/AdminDashboard';
+import { GenerationPanel } from './components/GenerationPanel';
+import { WorkflowEditor } from './components/WorkflowEditor';
+import { AgentDashboard } from './components/AgentDashboard';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatMessages } from './components/ChatMessages';
@@ -19,14 +22,20 @@ import { useVoiceRecording } from './hooks/useVoiceRecording';
 import { useImageUpload } from './hooks/useImageUpload';
 import { supabase } from './supabaseClient';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function App() {
   const { trackRequest } = useStats();
   const { theme } = useTheme();
   const [session, setSession] = useState<any>(null);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 768);
   const [input, setInput] = useState('');
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showGeneration, setShowGeneration] = useState(false);
+  const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
+  const [showAgentDashboard, setShowAgentDashboard] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { threads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
@@ -89,10 +98,16 @@ export default function App() {
     if (thread) setMessages([]);
   };
 
-  if (!session) return <LandingPage onLogin={() => {}} />;
+  if (!session) {
+    if (showAuth) return <AuthScreen />;
+    return <LandingPage onLogin={() => setShowAuth(true)} />;
+  }
 
   return (
     <div className="app-workspace">
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
+      )}
       <Sidebar
         threads={threads}
         currentThreadId={currentThreadId}
@@ -144,10 +159,13 @@ export default function App() {
 
       <StatsDashboard />
       {showAdmin && <AdminDashboard session={session} onClose={() => setShowAdmin(false)} />}
+      <GenerationPanel session={session} isOpen={showGeneration} onClose={() => setShowGeneration(false)} />
+      <WorkflowEditor session={session} isOpen={showWorkflowEditor} onClose={() => setShowWorkflowEditor(false)} />
+      <AgentDashboard session={session} isOpen={showAgentDashboard} onClose={() => setShowAgentDashboard(false)} />
       {theme === 'living-canvas' && <LivingCanvas />}
       {theme === 'neural' && <NeuralCanvas />}
       {theme === 'blackhole' && <BlackHoleCanvas />}
-      <ThemeSwitcher />
+      <ThemeSwitcher onOpenGeneration={() => setShowGeneration(true)} onOpenWorkflowEditor={() => setShowWorkflowEditor(true)} onOpenAgentDashboard={() => setShowAgentDashboard(true)} />
     </div>
   );
 }

@@ -3,8 +3,6 @@ import { MessageSquare, Plus, Menu, X, LogOut, Pencil, Settings, Shield } from '
 import { supabase } from '../supabaseClient';
 import { useI18n } from '../context/I18nContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 interface Thread { id: string; title: string; createdAt: string; systemPrompt?: string | null; }
 
 interface Props {
@@ -94,14 +92,14 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
                     <button
                       className="thread-action-btn"
                       onClick={(e) => { e.stopPropagation(); setRenamingId(thread.id); setRenamingText(thread.title); }}
-                      title="Rename"
+                      title={t('sidebar.rename')}
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       className="thread-action-btn thread-delete-btn"
                       onClick={(e) => { e.stopPropagation(); onDeleteThread(thread.id); }}
-                      title="Delete"
+                      title={t('sidebar.delete')}
                     >
                       <X size={13} />
                     </button>
@@ -115,24 +113,28 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
 
       {isSidebarOpen && (
         <div className="user-profile-cabinet-footer">
-          {currentThreadId && (
-            <button className="system-prompt-btn" onClick={handleOpenPrompt} title={t('sidebar.systemPrompt')}>
-              <Settings size={16} />
-              <span>{t('sidebar.systemPrompt')}</span>
+          <div className="sidebar-footer-actions">
+            {currentThreadId && (
+              <button className="system-prompt-btn" onClick={handleOpenPrompt} title={t('sidebar.systemPrompt')}>
+                <Settings size={14} />
+                <span>{t('sidebar.systemPrompt')}</span>
+              </button>
+            )}
+            <button className="system-prompt-btn" onClick={onOpenAdmin} title={t('sidebar.admin')}>
+              <Shield size={14} />
+              <span>{t('sidebar.admin')}</span>
             </button>
-          )}
-          <button className="system-prompt-btn" onClick={onOpenAdmin} title={t('sidebar.admin')}>
-            <Shield size={16} />
-            <span>{t('sidebar.admin')}</span>
-          </button>
-          <div className="user-avatar-placeholder">
-            {session.user?.email?.[0].toUpperCase()}
           </div>
-          <div className="user-meta-info">
-            <p className="profile-name">{session.user?.email}</p>
-            <button className="logout-action-text-btn" onClick={() => supabase.auth.signOut()}>
-              <LogOut size={12} /> {t('sidebar.signOut')}
-            </button>
+          <div className="sidebar-user-bar">
+            <div className="user-avatar-placeholder">
+              {session.user?.email?.[0].toUpperCase()}
+            </div>
+            <div className="user-meta-info">
+              <p className="profile-name">{session.user?.email}</p>
+              <button className="logout-action-text-btn" onClick={() => supabase.auth.signOut()}>
+                <LogOut size={10} /> {t('sidebar.signOut')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -151,7 +153,7 @@ export function Sidebar({ threads, currentThreadId, isSidebarOpen, session, onSe
               className="modal-textarea"
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
-              placeholder="e.g. You are a helpful coding assistant. Always respond in Russian. Be concise..."
+              placeholder={t('sidebar.promptPlaceholder')}
               rows={6}
             />
             <div className="modal-actions">

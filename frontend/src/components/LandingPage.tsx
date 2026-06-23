@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Check, Zap, Users, Building2, ArrowRight, Star } from 'lucide-react';
+import { Bot, Check, Zap, Users, ArrowRight, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useI18n } from '../context/I18nContext';
 
@@ -9,52 +9,51 @@ interface Props {
   onLogin: () => void;
 }
 
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: '/month',
-    description: 'Perfect for trying out the AI assistant',
-    features: ['50 messages/day', '3 conversations', 'Basic models only', 'Text input'],
-    cta: 'Get Started Free',
-    icon: <Zap size={24} />,
-    highlighted: false,
-  },
-  {
-    name: 'Pro',
-    price: '$19',
-    period: '/month',
-    description: 'For power users who need unlimited access',
-    features: ['Unlimited messages', 'Unlimited conversations', 'All AI models', 'Voice & image input', 'File upload', 'Custom system prompts', 'Priority support'],
-    cta: 'Start Pro Trial',
-    icon: <Star size={24} />,
-    highlighted: true,
-    priceId: 'pro_monthly',
-  },
-  {
-    name: 'Team',
-    price: '$49',
-    period: '/user/month',
-    description: 'For teams and organizations',
-    features: ['Everything in Pro', 'Shared workspaces', 'Admin dashboard', 'SSO / SAML', 'Audit logs', 'Custom branding', 'Dedicated support'],
-    cta: 'Contact Sales',
-    icon: <Users size={24} />,
-    highlighted: false,
-  },
-];
-
-const features = [
-  { title: 'Multi-Modal AI', description: 'Text, voice, and image understanding with Gemini models', icon: '🎨' },
-  { title: 'Real-Time Streaming', description: 'See AI responses appear token by token in real-time', icon: '⚡' },
-  { title: 'Smart Tools', description: 'Calculator, time, and custom function calling', icon: '🔧' },
-  { title: 'Conversation Branching', description: 'Edit and regenerate from any point in the conversation', icon: '🌿' },
-  { title: 'Context Compression', description: 'AI automatically summarizes long conversations', icon: '📦' },
-  { title: 'Share & Collaborate', description: 'Share conversations with anyone via secure links', icon: '🔗' },
-];
-
 export function LandingPage({ onLogin }: Props) {
-  const { t } = useI18n();
-  const [hoveredPlan, setHoveredPlan] = useState<number | null>(null);
+  const { locale, setLocale, t } = useI18n();
+
+  const plans = [
+    {
+      name: t('landing.plan.free'),
+      price: t('landing.plan.freePrice'),
+      period: t('landing.plan.freePeriod'),
+      description: t('landing.plan.freeDesc'),
+      features: [t('landing.plan.freeFeat1'), t('landing.plan.freeFeat2'), t('landing.plan.freeFeat3'), t('landing.plan.freeFeat4')],
+      cta: t('landing.plan.freeCta'),
+      icon: <Zap size={24} />,
+      highlighted: false,
+    },
+    {
+      name: t('landing.plan.pro'),
+      price: t('landing.plan.proPrice'),
+      period: t('landing.plan.proPeriod'),
+      description: t('landing.plan.proDesc'),
+      features: [t('landing.plan.proFeat1'), t('landing.plan.proFeat2'), t('landing.plan.proFeat3'), t('landing.plan.proFeat4'), t('landing.plan.proFeat5'), t('landing.plan.proFeat6'), t('landing.plan.proFeat7')],
+      cta: t('landing.plan.proCta'),
+      icon: <Star size={24} />,
+      highlighted: true,
+      priceId: 'pro_monthly',
+    },
+    {
+      name: t('landing.plan.team'),
+      price: t('landing.plan.teamPrice'),
+      period: t('landing.plan.teamPeriod'),
+      description: t('landing.plan.teamDesc'),
+      features: [t('landing.plan.teamFeat1'), t('landing.plan.teamFeat2'), t('landing.plan.teamFeat3'), t('landing.plan.teamFeat4'), t('landing.plan.teamFeat5'), t('landing.plan.teamFeat6'), t('landing.plan.teamFeat7')],
+      cta: t('landing.plan.teamCta'),
+      icon: <Users size={24} />,
+      highlighted: false,
+    },
+  ];
+
+  const features = [
+    { title: t('landing.feat1.title'), description: t('landing.feat1.desc'), icon: '\ud83c\udfa8' },
+    { title: t('landing.feat2.title'), description: t('landing.feat2.desc'), icon: '\u26a1' },
+    { title: t('landing.feat3.title'), description: t('landing.feat3.desc'), icon: '\ud83d\udd27' },
+    { title: t('landing.feat4.title'), description: t('landing.feat4.desc'), icon: '\ud83c\udf3f' },
+    { title: t('landing.feat5.title'), description: t('landing.feat5.desc'), icon: '\ud83d\udce6' },
+    { title: t('landing.feat6.title'), description: t('landing.feat6.desc'), icon: '\ud83d\udd17' },
+  ];
 
   const handleCheckout = async (priceId?: string) => {
     if (!priceId) {
@@ -95,8 +94,24 @@ export function LandingPage({ onLogin }: Props) {
             <Bot size={28} />
             <span>Nikoff</span>
           </div>
+          <div className="lang-flags">
+            <button
+              className={`lang-flag-btn ${locale === 'en' ? 'active' : ''}`}
+              onClick={() => setLocale('en')}
+              title="English"
+            >
+              <img src="https://flagcdn.com/w40/gb.png" alt="EN" className="flag-img" />
+            </button>
+            <button
+              className={`lang-flag-btn ${locale === 'ru' ? 'active' : ''}`}
+              onClick={() => setLocale('ru')}
+              title="Russian"
+            >
+              <img src="https://flagcdn.com/w40/ru.png" alt="RU" className="flag-img" />
+            </button>
+          </div>
           <button className="landing-nav-btn" onClick={onLogin}>
-            Sign In <ArrowRight size={16} />
+            {t('landing.signIn')} <ArrowRight size={16} />
           </button>
         </div>
       </nav>
@@ -104,27 +119,26 @@ export function LandingPage({ onLogin }: Props) {
       <section className="landing-hero">
         <div className="landing-hero-content">
           <h1 className="landing-hero-title">
-            Your AI Assistant,<br />
-            <span className="gradient-text">Powered by Gemini</span>
+            {t('landing.heroTitle1')}<br />
+            <span className="gradient-text">{t('landing.heroTitle2')}</span>
           </h1>
           <p className="landing-hero-subtitle">
-            Chat with the most advanced AI models. Upload images, record voice, 
-            and let AI help you with anything — from code to creative writing.
+            {t('landing.heroSubtitle')}
           </p>
           <div className="landing-hero-actions">
             <button className="landing-cta-primary" onClick={onLogin}>
-              Start Free <ArrowRight size={18} />
+              {t('landing.startFree')} <ArrowRight size={18} />
             </button>
             <button className="landing-cta-secondary" onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}>
-              View Pricing
+              {t('landing.viewPricing')}
             </button>
           </div>
         </div>
       </section>
 
       <section className="landing-features">
-        <h2 className="section-title">Everything you need</h2>
-        <p className="section-subtitle">Powerful features for every use case</p>
+        <h2 className="section-title">{t('landing.featuresTitle')}</h2>
+        <p className="section-subtitle">{t('landing.featuresSub')}</p>
         <div className="features-grid">
           {features.map((f, i) => (
             <div key={i} className="feature-card">
@@ -137,17 +151,15 @@ export function LandingPage({ onLogin }: Props) {
       </section>
 
       <section id="pricing" className="landing-pricing">
-        <h2 className="section-title">Simple, transparent pricing</h2>
-        <p className="section-subtitle">Choose the plan that fits your needs</p>
+        <h2 className="section-title">{t('landing.pricingTitle')}</h2>
+        <p className="section-subtitle">{t('landing.pricingSub')}</p>
         <div className="pricing-grid">
           {plans.map((plan, i) => (
             <div
               key={i}
               className={`pricing-card ${plan.highlighted ? 'highlighted' : ''}`}
-              onMouseEnter={() => setHoveredPlan(i)}
-              onMouseLeave={() => setHoveredPlan(null)}
             >
-              {plan.highlighted && <div className="pricing-badge">Most Popular</div>}
+              {plan.highlighted && <div className="pricing-badge">{t('landing.mostPopular')}</div>}
               <div className="pricing-icon">{plan.icon}</div>
               <h3>{plan.name}</h3>
               <div className="pricing-price">
@@ -175,7 +187,7 @@ export function LandingPage({ onLogin }: Props) {
       </section>
 
       <footer className="landing-footer">
-        <p>&copy; 2026 Nikoff AI. All rights reserved.</p>
+        <p>{t('landing.footer')}</p>
       </footer>
     </div>
   );

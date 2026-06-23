@@ -32,6 +32,11 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegen
           <div key={msg.id || index} className={`message-bubble-wrapper ${msg.role === 'user' ? 'user-type' : 'ai-type'}`}>
             <div className="message-container-max-width">
               <div className="author-avatar-badge">
+                {msg.role === 'user' && msg.id && editingId !== msg.id && (
+                  <button className="pencil-edit-btn" onClick={() => { setEditingId(msg.id!); setEditingText(msg.text); }} title={t('chat.edit')}>
+                    <Pencil size={12} />
+                  </button>
+                )}
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
               <div className="message-body-content-text">
@@ -46,17 +51,17 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegen
                     />
                     <div className="edit-actions">
                       <button className="edit-save-btn" onClick={() => { onEdit(msg.id!, editingText); setEditingId(null); }}>
-                        <Check size={14} /> Save
+                        <Check size={14} /> {t('chat.save')}
                       </button>
                       <button className="edit-cancel-btn" onClick={() => setEditingId(null)}>
-                        <X size={14} /> Cancel
+                        <X size={14} /> {t('chat.cancel')}
                       </button>
                     </div>
                   </div>
                     ) : (
                       <>
                         {msg.image && (
-                          <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} alt="Uploaded" className="message-image" />
+                          <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} alt={t('chat.uploaded')} className="message-image" />
                         )}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="tool-calls">
@@ -70,27 +75,20 @@ export function ChatMessages({ messages, isThinking, onFeedback, onEdit, onRegen
                           </div>
                         )}
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
-                        {msg.editedAt && <span className="edited-badge">(edited)</span>}
+                        {msg.editedAt && <span className="edited-badge">{t('chat.edited')}</span>}
                       </>
                     )}
               </div>
             </div>
-            {msg.role === 'user' && msg.id && editingId !== msg.id && (
-              <div className="edit-actions-inline">
-                <button className="feedback-btn" onClick={() => { setEditingId(msg.id!); setEditingText(msg.text); }} title="Edit">
-                  <Pencil size={14} />
-                </button>
-              </div>
-            )}
             {msg.role === 'ai' && msg.id && (
               <div className="feedback-actions">
-                <button className="feedback-btn" onClick={() => onRegenerate(msg.id!)} title="Regenerate">
+                <button className="feedback-btn" onClick={() => onRegenerate(msg.id!)} title={t('chat.regenerate')}>
                   <RefreshCcw size={14} />
                 </button>
-                <button className={`feedback-btn ${msg.feedback?.rating === 1 ? 'active' : ''}`} onClick={() => onFeedback(msg.id!, 1)} title="Good">
+                <button className={`feedback-btn ${msg.feedback?.rating === 1 ? 'active' : ''}`} onClick={() => onFeedback(msg.id!, 1)} title={t('chat.good')}>
                   <ThumbsUp size={14} />
                 </button>
-                <button className={`feedback-btn ${msg.feedback?.rating === -1 ? 'active' : ''}`} onClick={() => onFeedback(msg.id!, -1)} title="Bad">
+                <button className={`feedback-btn ${msg.feedback?.rating === -1 ? 'active' : ''}`} onClick={() => onFeedback(msg.id!, -1)} title={t('chat.bad')}>
                   <ThumbsDown size={14} />
                 </button>
               </div>

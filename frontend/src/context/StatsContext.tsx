@@ -17,14 +17,19 @@ export interface ChatSessionStats {
   sessionStartTime: number;
   currentContextTokens: number;
   history: RequestLog[];
+  modelRequests: Record<string, number>;
 }
 
 // THIS WAS THE MISSING PIECE! 
 export const MODEL_CONFIGS: Record<string, { maxContextTokens: number; label: string }> = {
-  'gemini-2.5-flash': { maxContextTokens: 1048576, label: '1M (Gemini)' },
-  'gemini-2.0-flash': { maxContextTokens: 1048576, label: '1M (Gemini)' },
-  'gemma-4-26b-a4b-it': { maxContextTokens: 256000, label: '256K (Gemma 4)' },
-  'gemma-4-31b-it': { maxContextTokens: 256000, label: '256K (Gemma 4)' },
+  'gemini-2.5-flash': { maxContextTokens: 1048576, label: '1M (Gemini 2.5)' },
+  'gemini-2.5-flash-lite': { maxContextTokens: 1048576, label: '1M (Gemini 2.5 Lite)' },
+  'gemini-2.0-flash': { maxContextTokens: 1048576, label: '1M (Gemini 2.0)' },
+  'gemini-3.0-flash': { maxContextTokens: 1048576, label: '1M (Gemini 3.0)' },
+  'gemini-3.1-flash-lite': { maxContextTokens: 1048576, label: '1M (Gemini 3.1 Lite)' },
+  'gemini-3.5-flash': { maxContextTokens: 1048576, label: '1M (Gemini 3.5)' },
+  'gemma-4-26b-a4b-it': { maxContextTokens: 256000, label: '256K (Gemma 4 26B)' },
+  'gemma-4-31b-it': { maxContextTokens: 256000, label: '256K (Gemma 4 31B)' },
   'default': { maxContextTokens: 1048576, label: '1M' }
 };
 
@@ -44,6 +49,7 @@ const initialStats: ChatSessionStats = {
   sessionStartTime: Date.now(),
   currentContextTokens: 0,
   history: [],
+  modelRequests: {},
 };
 
 const StatsContext = createContext<StatsContextType | undefined>(undefined);
@@ -96,7 +102,11 @@ export const StatsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentContextTokens: currentTokens,
         lastResponseTime: responseTimeMs,
         averageResponseTime: Math.round(newAverageResponseTime),
-        history: [...(prev.history || []), newLog]
+        history: [...(prev.history || []), newLog],
+        modelRequests: {
+          ...prev.modelRequests,
+          [modelUsed]: (prev.modelRequests?.[modelUsed] || 0) + 1,
+        },
       };
     });
   };
