@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { Bot, Play, CheckCircle, XCircle, Clock, Plus, X, Trash2, Cpu, Zap } from 'lucide-react';
 import { api } from '../utils/apiClient';
+import { useI18n } from '../context/I18nContext';
 
 interface Agent {
   id: string;
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function AgentDashboard({ session, isOpen, onClose }: Props) {
+  const { locale, setLocale } = useI18n();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeRuns, setActiveRuns] = useState<AgentRun[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -159,11 +161,15 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="agent-dashboard" onClick={(e) => e.stopPropagation()}>
+    <div className="panel-fullscreen" onClick={onClose}>
+      <div className="agent-dashboard panel-fullscreen-inner" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2><Bot size={20} /> Agent Dashboard</h2>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          <div className="panel-header-right">
+            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English">{'\ud83c\uddec\ud83c\udde7'}</button>
+            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский">{'\ud83c\uddf7\ud83c\uddfa'}</button>
+            <button className="modal-close" onClick={onClose}><X size={18} /></button>
+          </div>
         </div>
 
         <div className="agent-layout">

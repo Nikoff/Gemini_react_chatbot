@@ -1,21 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import {
-  ReactFlow,
-  Controls,
-  Background,
-  addEdge,
-  useNodesState,
-  useEdgesState,
-  Handle,
-  Position,
-  type Connection,
-  type Node,
-  type Edge,
-} from '@xyflow/react';
+import { ReactFlow, Controls, Background, addEdge, useNodesState, useEdgesState, Handle, Position, type Connection, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings, Mic } from 'lucide-react';
 import { api } from '../utils/apiClient';
+import { useI18n } from '../context/I18nContext';
 
 interface PaletteNodeDef {
   backendType: string;
@@ -281,6 +270,7 @@ let nodeIdCounter = 0;
 const getNextId = () => `node_${++nodeIdCounter}`;
 
 export function WorkflowEditor({ session, isOpen, onClose }: Props) {
+  const { locale, setLocale } = useI18n();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [workflowName, setWorkflowName] = useState('');
@@ -493,6 +483,8 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
             </select>
           </div>
           <div className="wf-toolbar-right">
+            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English">{'\ud83c\uddec\ud83c\udde7'}</button>
+            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский">{'\ud83c\uddf7\ud83c\uddfa'}</button>
             <button className="wf-btn wf-btn-save" onClick={() => setShowSaveModal(true)}>
               <Save size={14} /> Save
             </button>
