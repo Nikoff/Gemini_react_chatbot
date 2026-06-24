@@ -14,16 +14,104 @@ import {
   type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, Square, Pencil } from 'lucide-react';
+import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings } from 'lucide-react';
 import { api } from '../utils/apiClient';
 
-const NODE_TYPES_CONFIG = [
-  { type: 'input', label: 'Input', icon: <Plus size={14} />, color: '#10b981', description: 'Provide input data' },
-  { type: 'text_gen', label: 'Text Generation', icon: <FileText size={14} />, color: '#3b82f6', description: 'Generate text with AI' },
-  { type: 'image_gen', label: 'Image Generation', icon: <Image size={14} />, color: '#8b5cf6', description: 'Generate image with ComfyUI' },
-  { type: 'transform', label: 'Transform', icon: <Wand2 size={14} />, color: '#f59e0b', description: 'Transform data with template' },
-  { type: 'output', label: 'Output', icon: <Square size={14} />, color: '#ef4444', description: 'Output result' },
+interface PaletteNodeDef {
+  backendType: string;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  description: string;
+  defaultConfig?: Record<string, string>;
+}
+
+const ALL_PALETTE_NODES: PaletteNodeDef[] = [
+  { backendType: 'input', label: 'Start', icon: <Plus size={14} />, color: '#10b981', description: 'Provide input data', defaultConfig: { defaultValue: '' } },
+  { backendType: 'text_gen', label: 'Generate Text', icon: <FileText size={14} />, color: '#3b82f6', description: 'Generate text with AI', defaultConfig: { prompt: '' } },
+  { backendType: 'image_gen', label: 'Generate Image', icon: <Image size={14} />, color: '#8b5cf6', description: 'Generate image with AI', defaultConfig: { prompt: '' } },
+  { backendType: 'transform', label: 'Transform', icon: <Wand2 size={14} />, color: '#f59e0b', description: 'Transform data with template', defaultConfig: { template: '' } },
+  { backendType: 'output', label: 'End', icon: <Square size={14} />, color: '#ef4444', description: 'Output result' },
 ];
+
+const PROJECT_TYPES = {
+  blog: {
+    label: 'Blog',
+    icon: <BookOpen size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Write Article', description: 'Write blog post content', defaultConfig: { prompt: 'Write a detailed blog article about: {{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'SEO Optimize', description: 'Optimize for search engines', defaultConfig: { prompt: 'Optimize this article for SEO, add keywords and meta description:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[2], label: 'Featured Image', description: 'Create blog featured image', defaultConfig: { prompt: 'Blog featured image for: {{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  image: {
+    label: 'Image',
+    icon: <Image size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[2], label: 'Generate Image', description: 'Create image from prompt', defaultConfig: { prompt: '{{input}}' } },
+      { ...ALL_PALETTE_NODES[2], label: 'Enhance Image', description: 'Refine and enhance image', defaultConfig: { prompt: 'Enhance and improve: {{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  video: {
+    label: 'Video',
+    icon: <Video size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Script Writer', description: 'Write video script', defaultConfig: { prompt: 'Write a video script for: {{input}}' } },
+      { ...ALL_PALETTE_NODES[2], label: 'StoryBoard', description: 'Generate storyboard frames', defaultConfig: { prompt: 'Storyboard frame for scene: {{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Scene Description', description: 'Describe each scene in detail', defaultConfig: { prompt: 'Describe this scene in detail for video production:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  '3d': {
+    label: '3D Model',
+    icon: <Box size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Model Description', description: 'Describe 3D model specs', defaultConfig: { prompt: 'Describe this 3D model in detail including dimensions, materials, and texture:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[2], label: 'Generate Texture', description: 'Create texture maps', defaultConfig: { prompt: 'Seamless texture for 3D model: {{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  text: {
+    label: 'Text',
+    icon: <PenTool size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Generate Text', description: 'Generate text content', defaultConfig: { prompt: '{{input}}' } },
+      { ...ALL_PALETTE_NODES[3], label: 'Edit & Refine', description: 'Polish and format text', defaultConfig: { template: '{{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  scenario: {
+    label: 'Scenario',
+    icon: <Clapperboard size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Character Writer', description: 'Create character profiles', defaultConfig: { prompt: 'Create detailed character profiles for: {{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Dialogue Writer', description: 'Write character dialogues', defaultConfig: { prompt: 'Write dialogues for this scenario:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[2], label: 'Scene Visual', description: 'Visualize scene composition', defaultConfig: { prompt: 'Scene visualization: {{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Narrative', description: 'Write narrative descriptions', defaultConfig: { prompt: 'Write narrative for this scene:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  complex: {
+    label: 'Complex',
+    icon: <Layers size={14} />,
+    nodes: [...ALL_PALETTE_NODES],
+  },
+  custom: {
+    label: 'Custom',
+    icon: <Settings size={14} />,
+    nodes: [...ALL_PALETTE_NODES],
+  },
+} as const;
+
+type ProjectTypeKey = keyof typeof PROJECT_TYPES;
 
 interface Props {
   session: Session;
@@ -51,17 +139,26 @@ interface Workflow {
   id: string;
   name: string;
   description?: string;
+  projectType?: string;
   graph: { nodes: GraphNode[]; edges: GraphEdge[] };
 }
 
+function getPaletteForType(projectType: ProjectTypeKey): PaletteNodeDef[] {
+  return [...(PROJECT_TYPES[projectType]?.nodes || PROJECT_TYPES.custom.nodes)];
+}
+
 function CustomNode({ data, selected }: { data: Record<string, unknown> & { nodeType: string; label?: string; config?: Record<string, string>; onConfigChange?: (key: string, value: string) => void; onLabelChange?: (label: string) => void }; selected?: boolean }) {
-  const config = NODE_TYPES_CONFIG.find(n => n.type === data.nodeType) || NODE_TYPES_CONFIG[0];
+  const allNodes = ALL_PALETTE_NODES;
+  const fallback = allNodes.find(n => n.backendType === data.nodeType) || allNodes[0];
+  const nodeColor = (data.color as string) || fallback.color;
+  const nodeLabel = (data.label as string) || fallback.label;
+
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState((data.label as string) || config.label);
+  const [editValue, setEditValue] = useState(nodeLabel);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleRenameStart = () => {
-    setEditValue((data.label as string) || config.label);
+    setEditValue(nodeLabel);
     setEditing(true);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
@@ -73,10 +170,10 @@ function CustomNode({ data, selected }: { data: Record<string, unknown> & { node
   };
 
   return (
-    <div className={`workflow-node ${selected ? 'selected' : ''}`} style={{ borderColor: selected ? '#f8fafc' : config.color }}>
-      <Handle type="target" position={Position.Left} style={{ background: config.color }} />
-      <div className="workflow-node-header" style={{ background: config.color }}>
-        {config.icon}
+    <div className={`workflow-node ${selected ? 'selected' : ''}`} style={{ borderColor: selected ? '#f8fafc' : nodeColor }}>
+      <Handle type="target" position={Position.Left} style={{ background: nodeColor }} />
+      <div className="workflow-node-header" style={{ background: nodeColor }}>
+        {fallback.icon}
         {editing ? (
           <input
             ref={inputRef}
@@ -92,7 +189,7 @@ function CustomNode({ data, selected }: { data: Record<string, unknown> & { node
           />
         ) : (
           <span className="node-label" onDoubleClick={handleRenameStart} title="Double-click to rename">
-            {data.label || config.label}
+            {nodeLabel}
           </span>
         )}
         {!editing && (
@@ -146,7 +243,7 @@ function CustomNode({ data, selected }: { data: Record<string, unknown> & { node
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: config.color }} />
+      <Handle type="source" position={Position.Right} style={{ background: nodeColor }} />
     </div>
   );
 }
@@ -161,12 +258,15 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
+  const [projectType, setProjectType] = useState<ProjectTypeKey>('custom');
   const [isRunning, setIsRunning] = useState(false);
   const [executionResult, setExecutionResult] = useState<{ status: string; creditsUsed?: number; error?: string } | null>(null);
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, string>>>({});
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+
+  const paletteNodes = getPaletteForType(projectType);
 
   useEffect(() => {
     if (isOpen && session) loadWorkflows();
@@ -176,17 +276,17 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
     setEdges((eds) => addEdge({ ...params, animated: true }, eds));
   }, [setEdges]);
 
-  const addNode = (type: string) => {
-    const config = NODE_TYPES_CONFIG.find(n => n.type === type) || NODE_TYPES_CONFIG[0];
+  const addNode = (paletteDef: PaletteNodeDef) => {
     const id = getNextId();
     const newNode: Node = {
       id,
       type: 'custom',
       position: { x: 250, y: 100 + nodes.length * 120 },
       data: {
-        nodeType: type,
-        label: config.label,
-        config: nodeConfigs[id] || {},
+        nodeType: paletteDef.backendType,
+        label: paletteDef.label,
+        color: paletteDef.color,
+        config: { ...(paletteDef.defaultConfig || {}), ...(nodeConfigs[id] || {}) },
         onConfigChange: (key: string, value: string) => {
           setNodeConfigs(prev => ({
             ...prev,
@@ -237,6 +337,7 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
         body: {
           name: workflowName,
           description: workflowDescription,
+          projectType,
           graph,
         },
         token: session.access_token,
@@ -269,7 +370,7 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
         },
       );
       setExecutionResult(data);
-    } catch (err) {
+    } catch {
       setExecutionResult({ status: 'failed', error: 'Execution failed' });
     } finally {
       setIsRunning(false);
@@ -290,26 +391,34 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
       setWorkflowName(workflow.name);
       setWorkflowDescription(workflow.description || '');
 
+      const wfProjectType = (workflow.projectType as ProjectTypeKey) || 'custom';
+      setProjectType(wfProjectType);
+
       const graph = workflow.graph;
-      const loadedNodes: Node[] = graph.nodes.map((n) => ({
-        id: n.id,
-        type: 'custom',
-        position: n.position || { x: 250, y: 100 },
-        data: {
-          nodeType: n.type,
-          label: n.label || NODE_TYPES_CONFIG.find(c => c.type === n.type)?.label || n.type,
-          config: n.config || {},
-          onConfigChange: (key: string, value: string) => {
-            setNodeConfigs(prev => ({
-              ...prev,
-              [n.id]: { ...(prev[n.id] || {}), [key]: value },
-            }));
+      const loadedNodes: Node[] = graph.nodes.map((n) => {
+        const palette = getPaletteForType(wfProjectType);
+        const paletteDef = palette.find(p => p.backendType === n.type) || ALL_PALETTE_NODES.find(p => p.backendType === n.type) || ALL_PALETTE_NODES[0];
+        return {
+          id: n.id,
+          type: 'custom',
+          position: n.position || { x: 250, y: 100 },
+          data: {
+            nodeType: n.type,
+            label: n.label || paletteDef.label,
+            color: paletteDef.color,
+            config: n.config || {},
+            onConfigChange: (key: string, value: string) => {
+              setNodeConfigs(prev => ({
+                ...prev,
+                [n.id]: { ...(prev[n.id] || {}), [key]: value },
+              }));
+            },
+            onLabelChange: (label: string) => {
+              setNodes((nds) => nds.map(node => node.id === n.id ? { ...node, data: { ...node.data, label } } : node));
+            },
           },
-          onLabelChange: (label: string) => {
-            setNodes((nds) => nds.map(node => node.id === n.id ? { ...node, data: { ...node.data, label } } : node));
-          },
-        },
-      }));
+        };
+      });
 
       const loadedEdges: Edge[] = graph.edges.map((e) => ({
         id: e.id,
@@ -372,12 +481,25 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
 
         <div className="wf-main">
           <div className="wf-sidebar">
+            <div className="wf-project-type-row">
+              <label className="wf-project-label">Project</label>
+              <select
+                className="wf-project-select"
+                value={projectType}
+                onChange={(e) => setProjectType(e.target.value as ProjectTypeKey)}
+              >
+                {Object.entries(PROJECT_TYPES).map(([key, pt]) => (
+                  <option key={key} value={key}>{pt.label}</option>
+                ))}
+              </select>
+            </div>
+
             <p className="wf-sidebar-title">Node Palette</p>
-            {NODE_TYPES_CONFIG.map((nt) => (
+            {paletteNodes.map((nt, idx) => (
               <button
-                key={nt.type}
+                key={`${projectType}-${nt.backendType}-${idx}`}
                 className="wf-palette-btn"
-                onClick={() => addNode(nt.type)}
+                onClick={() => addNode(nt)}
                 style={{ borderLeftColor: nt.color }}
               >
                 {nt.icon}
@@ -439,6 +561,14 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
             <div className="gen-field" style={{ marginTop: '0.75rem' }}>
               <label>Description</label>
               <input className="gen-input" value={workflowDescription} onChange={(e) => setWorkflowDescription(e.target.value)} placeholder="What does this workflow do?" />
+            </div>
+            <div className="gen-field" style={{ marginTop: '0.75rem' }}>
+              <label>Project Type</label>
+              <select className="gen-input" value={projectType} onChange={(e) => setProjectType(e.target.value as ProjectTypeKey)}>
+                {Object.entries(PROJECT_TYPES).map(([key, pt]) => (
+                  <option key={key} value={key}>{pt.label}</option>
+                ))}
+              </select>
             </div>
             <div className="modal-actions">
               <button className="modal-cancel" onClick={() => setShowSaveModal(false)}>Cancel</button>
