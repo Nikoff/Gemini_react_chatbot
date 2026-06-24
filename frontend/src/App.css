@@ -2210,6 +2210,51 @@
   color: #ef4444;
 }
 
+.gen-provider-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.gen-provider-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gen-provider-btn:hover {
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.gen-provider-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.gen-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #60a5fa;
+}
+
 .gen-generate-btn {
   display: flex;
   align-items: center;

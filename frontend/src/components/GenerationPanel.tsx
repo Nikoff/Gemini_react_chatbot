@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Image, Sparkles, Download, X, Loader2, Coins, AlertCircle } from 'lucide-react';
+import { Image, Sparkles, Download, X, Loader2, Coins, AlertCircle, Cloud } from 'lucide-react';
 import { api } from '../utils/apiClient';
 
 interface GenerationHistory {
@@ -30,6 +30,8 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
   const [steps, setSteps] = useState(20);
+  const [provider, setProvider] = useState<'comfyui' | 'aihorde'>('comfyui');
+  const [streamProgress, setStreamProgress] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && session) {
@@ -58,41 +60,76 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
     setIsGenerating(true);
     setError(null);
     setGeneratedImage(null);
+    setStreamProgress(null);
 
     try {
-      const data = await api<{ image?: { data: string; mimeType: string }; error?: string; remainingCredits?: number }>(
-        '/api/generate/image',
-        {
-          method: 'POST',
-          body: {
-            prompt: prompt.trim(),
-            negativePrompt: negativePrompt.trim() || undefined,
-            width,
-            height,
-            steps,
-          },
-          token: session.access_token,
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/generate/image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
-      );
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          negativePrompt: negativePrompt.trim() || undefined,
+          width,
+          height,
+          steps,
+          provider,
+        }),
+      });
 
-      if (data.error) {
-        setError(data.error);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        setError(errBody.error || 'Generation failed.');
         return;
       }
 
-      if (data.image) {
-        setGeneratedImage(data.image);
-      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
 
-      if (data.remainingCredits !== undefined) {
-        setCredits(data.remainingCredits);
-      }
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      loadHistory();
-    } catch (err) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.type === 'progress' && event.data) {
+              setStreamProgress(event.data.message || `Processing...`);
+            }
+
+            if (event.type === 'complete' && event.data) {
+              if (event.data.image) {
+                setGeneratedImage(event.data.image);
+              }
+              if (event.data.remainingCredits !== undefined) {
+                setCredits(event.data.remainingCredits);
+              }
+              loadHistory();
+            }
+
+            if (event.type === 'error' && event.data) {
+              setError(event.data.error || 'Generation failed.');
+            }
+          } catch {}
+        }
+      }
+    } catch {
       setError('Network error. Is the generation service running?');
     } finally {
       setIsGenerating(false);
+      setStreamProgress(null);
     }
   };
 
@@ -106,7 +143,7 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
 
   if (!isOpen) return null;
 
-  const cost = (width > 512 || height > 512) ? 10 : 5;
+  const cost = provider === 'aihorde' ? 5 : (width > 512 || height > 512) ? 10 : 5;
 
   return (
     <div className="generation-panel-overlay" onClick={onClose}>
@@ -121,6 +158,24 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
 
         <div className="gen-panel-body">
           <div className="gen-input-section">
+            <div className="gen-field">
+              <label>Provider</label>
+              <div className="gen-provider-row">
+                <button
+                  className={`gen-provider-btn ${provider === 'comfyui' ? 'active' : ''}`}
+                  onClick={() => setProvider('comfyui')}
+                >
+                  <Image size={14} /> Local ComfyUI
+                </button>
+                <button
+                  className={`gen-provider-btn ${provider === 'aihorde' ? 'active' : ''}`}
+                  onClick={() => setProvider('aihorde')}
+                >
+                  <Cloud size={14} /> AI Horde (Free)
+                </button>
+              </div>
+            </div>
+
             <div className="gen-field">
               <label>Prompt</label>
               <textarea
@@ -178,6 +233,12 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
               </div>
             )}
 
+            {streamProgress && (
+              <div className="gen-progress">
+                <Loader2 size={14} className="spin" /> {streamProgress}
+              </div>
+            )}
+
             <button
               className="gen-generate-btn"
               onClick={handleGenerate}
@@ -206,7 +267,7 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
             ) : isGenerating ? (
               <div className="gen-loading">
                 <Loader2 size={32} className="spin" />
-                <p>Creating your image...</p>
+                <p>{streamProgress || 'Creating your image...'}</p>
               </div>
             ) : (
               <div className="gen-placeholder">

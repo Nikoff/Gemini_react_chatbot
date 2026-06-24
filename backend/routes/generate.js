@@ -2,6 +2,7 @@ const { prisma, ai, logger } = require('../middleware/shared');
 const requireAuth = require('../authMiddleware');
 const { ComfyUIClient, buildTextToImageWorkflow, buildImg2ImgWorkflow } = require('../services/comfyui');
 const { spendCredits, CREDIT_COSTS } = require('../services/credits');
+const aiHorde = require('../services/aihorde');
 
 const comfyui = new ComfyUIClient(process.env.COMFYUI_URL || 'http://127.0.0.1:8188');
 
@@ -33,7 +34,7 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
   });
 
   app.post('/api/generate/image', requireAuth, checkSubscription, async (req, res) => {
-    const { prompt, negativePrompt, width, height, steps, cfg, sampler, scheduler, seed, checkpoint } = req.body;
+    const { prompt, negativePrompt, width, height, steps, cfg, sampler, scheduler, seed, checkpoint, provider } = req.body;
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return res.status(400).json({ error: 'Prompt is required.' });
@@ -43,12 +44,100 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
       return res.status(400).json({ error: 'Prompt too long (max 2000 chars).' });
     }
 
+    const userId = req.user.sub;
+
+    if (provider === 'aihorde') {
+      const cost = CREDIT_COSTS.image_gen;
+
+      const deduction = await spendCredits(userId, cost, 'image_gen');
+      if (!deduction.success) {
+        return res.status(402).json({ error: 'Insufficient credits.', balance: deduction.balance, needed: deduction.needed });
+      }
+
+      const execution = await prisma.execution.create({
+        data: {
+          userId,
+          type: 'image',
+          status: 'running',
+          provider: 'aihorde',
+          input: { prompt, negativePrompt, width, height, steps },
+          creditsUsed: cost,
+          startedAt: new Date(),
+        },
+      });
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      const sendEvent = (type, data) => {
+        res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+      };
+
+      try {
+        sendEvent('progress', { value: 0, max: 10, message: 'Submitting to AI Horde...' });
+
+        const submitResult = await aiHorde.submitGeneration(prompt.trim(), {
+          negativePrompt: negativePrompt?.trim() || undefined,
+          width: width || 512,
+          height: height || 512,
+          steps: steps || 20,
+        });
+
+        const genId = submitResult.id;
+        logger.info(`AI Horde job ${genId} submitted for user ${userId}`);
+
+        sendEvent('progress', { value: 1, max: 10, message: `Queued (position: ${submitResult.queue_position || '?'})...` });
+
+        const genResult = await aiHorde.waitForGeneration(genId, (done, total) => {
+          const pct = total > 0 ? Math.round((done / total) * 8) + 1 : 5;
+          sendEvent('progress', { value: Math.min(pct, 9), max: 10, message: `Generating: ${done}/${total} workers` });
+        });
+
+        sendEvent('progress', { value: 10, max: 10, message: 'Retrieving image...' });
+
+        let imageData = null;
+        if (genResult.img) {
+          const imgRes = await fetch(genResult.img);
+          const buf = Buffer.from(await imgRes.arrayBuffer());
+          imageData = {
+            base64: buf.toString('base64'),
+            mimeType: genResult.img?.includes('.webp') ? 'image/webp' : 'image/png',
+          };
+        }
+
+        await prisma.execution.update({
+          where: { id: execution.id },
+          data: { status: 'completed', output: { image: true }, completedAt: new Date() },
+        });
+
+        sendEvent('complete', {
+          success: true,
+          executionId: execution.id,
+          image: imageData ? { data: imageData.base64, mimeType: imageData.mimeType } : null,
+          creditsUsed: cost,
+          remainingCredits: deduction.balance,
+        });
+
+        res.end();
+      } catch (err) {
+        logger.error(`AI Horde generation failed: ${err.message}`);
+        await prisma.execution.update({
+          where: { id: execution.id },
+          data: { status: 'failed', error: err.message, completedAt: new Date() },
+        });
+        sendEvent('error', { error: 'Image generation failed.' });
+        res.end();
+      }
+      return;
+    }
+
     const available = await ensureComfyUI();
     if (!available) {
       return res.status(503).json({ error: 'Image generation service is not available.' });
     }
 
-    const userId = req.user.sub;
     const cost = (width > 512 || height > 512) ? CREDIT_COSTS.image_gen_hd : CREDIT_COSTS.image_gen;
 
     const deduction = await spendCredits(userId, cost, 'image_gen');
@@ -270,6 +359,16 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
       });
 
       res.status(500).json({ error: 'Image generation failed.' });
+    }
+  });
+
+  app.get('/api/generate/models', requireAuth, async (req, res) => {
+    try {
+      const models = await aiHorde.getAvailableModels();
+      res.json(models);
+    } catch (err) {
+      logger.error(`GET /api/generate/models failed: ${err.message}`);
+      res.json([]);
     }
   });
 
