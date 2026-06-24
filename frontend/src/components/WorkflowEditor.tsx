@@ -31,11 +31,11 @@ interface Props {
   onClose: () => void;
 }
 
-function CustomNode({ data }: { data: any }) {
+function CustomNode({ data, selected }: { data: any; selected?: boolean }) {
   const config = NODE_TYPES_CONFIG.find(n => n.type === data.nodeType) || NODE_TYPES_CONFIG[0];
 
   return (
-    <div className="workflow-node" style={{ borderColor: config.color }}>
+    <div className={`workflow-node ${selected ? 'selected' : ''}`} style={{ borderColor: selected ? '#f8fafc' : config.color }}>
       <Handle type="target" position={Position.Left} style={{ background: config.color }} />
       <div className="workflow-node-header" style={{ background: config.color }}>
         {config.icon}
