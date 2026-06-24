@@ -2527,6 +2527,48 @@
   font-weight: 600;
 }
 
+.node-label {
+  flex: 1;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-rename-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0.1rem 0.3rem;
+  outline: none;
+  min-width: 0;
+}
+
+.node-rename-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0.1rem;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.workflow-node-header:hover .node-rename-btn {
+  opacity: 1;
+}
+
+.node-rename-btn:hover {
+  color: white;
+}
+
 .workflow-node-body {
   padding: 0.5rem 0.6rem;
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
   ReactFlow,
@@ -14,7 +14,7 @@ import {
   type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, Square } from 'lucide-react';
+import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, Square, Pencil } from 'lucide-react';
 import { api } from '../utils/apiClient';
 
 const NODE_TYPES_CONFIG = [
@@ -34,6 +34,7 @@ interface Props {
 interface GraphNode {
   id: string;
   type: string;
+  label?: string;
   config?: Record<string, string>;
   position?: { x: number; y: number };
 }
@@ -53,15 +54,52 @@ interface Workflow {
   graph: { nodes: GraphNode[]; edges: GraphEdge[] };
 }
 
-function CustomNode({ data, selected }: { data: Record<string, unknown> & { nodeType: string; label?: string; config?: Record<string, string>; onConfigChange?: (key: string, value: string) => void }; selected?: boolean }) {
+function CustomNode({ data, selected }: { data: Record<string, unknown> & { nodeType: string; label?: string; config?: Record<string, string>; onConfigChange?: (key: string, value: string) => void; onLabelChange?: (label: string) => void }; selected?: boolean }) {
   const config = NODE_TYPES_CONFIG.find(n => n.type === data.nodeType) || NODE_TYPES_CONFIG[0];
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState((data.label as string) || config.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleRenameStart = () => {
+    setEditValue((data.label as string) || config.label);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleRenameConfirm = () => {
+    const trimmed = editValue.trim();
+    if (trimmed) data.onLabelChange?.(trimmed);
+    setEditing(false);
+  };
 
   return (
     <div className={`workflow-node ${selected ? 'selected' : ''}`} style={{ borderColor: selected ? '#f8fafc' : config.color }}>
       <Handle type="target" position={Position.Left} style={{ background: config.color }} />
       <div className="workflow-node-header" style={{ background: config.color }}>
         {config.icon}
-        <span>{data.label || config.label}</span>
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="node-rename-input"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleRenameConfirm}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRenameConfirm();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="node-label" onDoubleClick={handleRenameStart} title="Double-click to rename">
+            {data.label || config.label}
+          </span>
+        )}
+        {!editing && (
+          <button className="node-rename-btn" onClick={(e) => { e.stopPropagation(); handleRenameStart(); }} title="Rename node">
+            <Pencil size={10} />
+          </button>
+        )}
       </div>
       <div className="workflow-node-body">
         {data.nodeType === 'text_gen' && (
@@ -155,6 +193,9 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
             [id]: { ...(prev[id] || {}), [key]: value },
           }));
         },
+        onLabelChange: (label: string) => {
+          setNodes((nds) => nds.map(n => n.id === id ? { ...n, data: { ...n.data, label } } : n));
+        },
       },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -172,6 +213,7 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
       nodes: nodes.map(n => ({
         id: n.id,
         type: (n.data as Record<string, string>).nodeType,
+        label: (n.data as Record<string, string>).label,
         config: nodeConfigs[n.id] || {},
         position: n.position,
       })),
@@ -255,13 +297,16 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
         position: n.position || { x: 250, y: 100 },
         data: {
           nodeType: n.type,
-          label: NODE_TYPES_CONFIG.find(c => c.type === n.type)?.label || n.type,
+          label: n.label || NODE_TYPES_CONFIG.find(c => c.type === n.type)?.label || n.type,
           config: n.config || {},
           onConfigChange: (key: string, value: string) => {
             setNodeConfigs(prev => ({
               ...prev,
               [n.id]: { ...(prev[n.id] || {}), [key]: value },
             }));
+          },
+          onLabelChange: (label: string) => {
+            setNodes((nds) => nds.map(node => node.id === n.id ? { ...node, data: { ...node.data, label } } : node));
           },
         },
       }));
