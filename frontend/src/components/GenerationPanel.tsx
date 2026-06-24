@@ -152,9 +152,9 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
     <div className="generation-panel-overlay" onClick={onClose}>
       <div className="generation-panel" onClick={(e) => e.stopPropagation()}>
         <div className="gen-panel-header">
-          <h2><Image size={20} /> Image Generation</h2>
+          <h2><Image size={20} /> {t('imagegen.title')}</h2>
           <div className="gen-panel-credits">
-            <Coins size={14} /> {credits} credits
+            <Coins size={14} /> {credits} {t('imagegen.credits')}
           </div>
           <div className="panel-header-right">
             <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English"><FlagIcon locale="en" /></button>
@@ -166,47 +166,47 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
         <div className="gen-panel-body">
           <div className="gen-input-section">
             <div className="gen-field">
-              <label>Provider</label>
+              <label>{t('imagegen.provider')}</label>
               <div className="gen-provider-row">
                 <button
                   className={`gen-provider-btn ${provider === 'comfyui' ? 'active' : ''}`}
                   onClick={() => setProvider('comfyui')}
                 >
-                  <Image size={14} /> Local ComfyUI
+                  <Image size={14} /> {t('imagegen.providerComfyUI')}
                 </button>
                 <button
                   className={`gen-provider-btn ${provider === 'aihorde' ? 'active' : ''}`}
                   onClick={() => setProvider('aihorde')}
                 >
-                  <Cloud size={14} /> AI Horde (Free)
+                  <Cloud size={14} /> {t('imagegen.providerHorde')}
                 </button>
               </div>
             </div>
 
             <div className="gen-field">
-              <label>Prompt</label>
+              <label>{t('imagegen.prompt')}</label>
               <textarea
                 className="gen-textarea"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the image you want to generate..."
+                placeholder={t('imagegen.promptPlaceholder')}
                 rows={3}
               />
             </div>
 
             <div className="gen-field">
-              <label>Negative prompt (optional)</label>
+              <label>{t('imagegen.negativePrompt')}</label>
               <input
                 className="gen-input"
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
-                placeholder="Things to avoid..."
+                placeholder={t('imagegen.negativePlaceholder')}
               />
             </div>
 
             <div className="gen-row">
               <div className="gen-field small">
-                <label>Width</label>
+                <label>{t('imagegen.width')}</label>
                 <select className="gen-select" value={width} onChange={(e) => setWidth(Number(e.target.value))}>
                   <option value={256}>256</option>
                   <option value={512}>512</option>
@@ -215,7 +215,7 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
                 </select>
               </div>
               <div className="gen-field small">
-                <label>Height</label>
+                <label>{t('imagegen.height')}</label>
                 <select className="gen-select" value={height} onChange={(e) => setHeight(Number(e.target.value))}>
                   <option value={256}>256</option>
                   <option value={512}>512</option>
@@ -224,7 +224,7 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
                 </select>
               </div>
               <div className="gen-field small">
-                <label>Steps</label>
+                <label>{t('imagegen.steps')}</label>
                 <select className="gen-select" value={steps} onChange={(e) => setSteps(Number(e.target.value))}>
                   <option value={10}>10</option>
                   <option value={15}>15</option>
@@ -252,14 +252,14 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
               disabled={isGenerating || !prompt.trim() || credits < cost}
             >
               {isGenerating ? (
-                <><Loader2 size={16} className="spin" /> Generating...</>
+                <><Loader2 size={16} className="spin" /> {t('imagegen.generating')}</>
               ) : (
-                <><Sparkles size={16} /> Generate ({cost} credits)</>
+                <><Sparkles size={16} /> {t('imagegen.generate')} ({cost} {t('imagegen.credits')})</>
               )}
             </button>
             {history.length > 0 && (
               <div className="gen-history">
-                <h3>Recent Generations</h3>
+                <h3>{t('imagegen.recent')}</h3>
                 <div className="gen-history-grid">
                   {history.map((h) => (
                     <div key={h.id} className={`gen-history-item ${h.status}`}>
@@ -286,18 +286,18 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
                   className="gen-result-image"
                 />
                 <button className="gen-download-btn" onClick={handleDownload}>
-                  <Download size={14} /> Download
+                  <Download size={14} /> {t('imagegen.download')}
                 </button>
               </div>
             ) : isGenerating ? (
               <div className="gen-loading">
                 <Loader2 size={32} className="spin" />
-                <p>{streamProgress || 'Creating your image...'}</p>
+                <p>{streamProgress || t('imagegen.creating')}</p>
               </div>
             ) : (
               <div className="gen-placeholder">
                 <Image size={48} />
-                <p>Your generated image will appear here</p>
+                <p>{t('imagegen.placeholder')}</p>
               </div>
             )}
           </div>

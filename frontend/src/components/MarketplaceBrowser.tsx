@@ -28,24 +28,24 @@ interface Props {
   onClose: () => void;
 }
 
-const TYPES = [
-  { value: '', label: 'All Types' },
-  { value: 'workflow', label: 'Workflows' },
-  { value: 'agent_template', label: 'Agent Templates' },
-  { value: 'style_preset', label: 'Style Presets' },
-  { value: 'automation_template', label: 'Automation Templates' },
-];
-
-const SORTS = [
-  { value: 'popular', label: 'Most Popular' },
-  { value: 'rating', label: 'Highest Rated' },
-  { value: 'newest', label: 'Newest' },
-  { value: 'price-low', label: 'Price: Low to High' },
-  { value: 'price-high', label: 'Price: High to Low' },
-];
-
 export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
   const { locale, setLocale, t } = useI18n();
+
+  const TYPES = [
+    { value: '', label: t('marketplace.allTypes') },
+    { value: 'workflow', label: t('marketplace.typeWorkflows') },
+    { value: 'agent_template', label: t('marketplace.typeAgentTemplates') },
+    { value: 'style_preset', label: t('marketplace.typeStylePresets') },
+    { value: 'automation_template', label: t('marketplace.typeAutomationTemplates') },
+  ];
+
+  const SORTS = [
+    { value: 'popular', label: t('marketplace.sortPopular') },
+    { value: 'rating', label: t('marketplace.sortRated') },
+    { value: 'newest', label: t('marketplace.sortNewest') },
+    { value: 'price-low', label: t('marketplace.sortPriceLow') },
+    { value: 'price-high', label: t('marketplace.sortPriceHigh') },
+  ];
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -124,9 +124,9 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
     <div className="panel-fullscreen" onClick={onClose}>
       <div className="marketplace-browser panel-fullscreen-inner" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><Store size={20} /> Marketplace</h2>
+          <h2><Store size={20} /> {t('marketplace.title')}</h2>
           <button className="wf-btn" onClick={() => setShowPublishModal(true)}>
-            <Plus size={14} /> Publish
+            <Plus size={14} /> {t('marketplace.publish')}
           </button>
           <div className="panel-header-right">
             <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English"><FlagIcon locale="en" /></button>
@@ -143,7 +143,7 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search marketplace..."
+              placeholder={t('marketplace.searchPlaceholder')}
             />
           </div>
           <select className="mp-filter" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
@@ -158,7 +158,7 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
           {items.length === 0 ? (
             <div className="mp-empty">
               <Store size={48} />
-              <p>No items found. Be the first to publish!</p>
+              <p>{t('marketplace.noItems')}</p>
             </div>
           ) : (
             items.map((item) => (
@@ -212,7 +212,7 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
               )}
               <div className="mp-detail-actions">
                 <span className="mp-detail-price">
-                  {selectedItem.price > 0 ? `${selectedItem.price} credits` : 'Free'}
+                  {selectedItem.price > 0 ? `${selectedItem.price} ${t('marketplace.credits')}` : 'Free'}
                 </span>
                 {selectedItem.user.id !== session.user?.id && (
                   <button
@@ -221,7 +221,7 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
                     disabled={isPurchasing}
                   >
                     <ShoppingCart size={14} />
-                    {isPurchasing ? 'Processing...' : selectedItem.price > 0 ? 'Purchase' : 'Download'}
+                    {isPurchasing ? 'Processing...' : selectedItem.price > 0 ? t('marketplace.purchase') : 'Download'}
                   </button>
                 )}
               </div>
@@ -234,26 +234,26 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
         <div className="modal-overlay" onClick={() => setShowPublishModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Publish to Marketplace</h3>
+              <h3>{t('marketplace.publishTitle')}</h3>
               <button className="modal-close" onClick={() => setShowPublishModal(false)}><X size={18} /></button>
             </div>
             <div className="gen-field">
-              <label>Name</label>
+              <label>{t('marketplace.itemName')}</label>
               <input className="gen-input" value={publishForm.name} onChange={(e) => setPublishForm({ ...publishForm, name: e.target.value })} placeholder="Item name" />
             </div>
             <div className="gen-field" style={{ marginTop: '0.5rem' }}>
-              <label>Description</label>
+              <label>{t('marketplace.itemDesc')}</label>
               <input className="gen-input" value={publishForm.description} onChange={(e) => setPublishForm({ ...publishForm, description: e.target.value })} placeholder="Description" />
             </div>
             <div className="gen-row" style={{ marginTop: '0.5rem' }}>
               <div className="gen-field small">
-                <label>Type</label>
+                <label>{t('marketplace.itemType')}</label>
                 <select className="gen-select" value={publishForm.type} onChange={(e) => setPublishForm({ ...publishForm, type: e.target.value })}>
                   {TYPES.filter(t => t.value).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div className="gen-field small">
-                <label>Price (credits, 0=free)</label>
+                <label>{t('marketplace.itemPrice')}</label>
                 <input className="gen-input" type="number" value={publishForm.price} onChange={(e) => setPublishForm({ ...publishForm, price: parseInt(e.target.value) || 0 })} />
               </div>
             </div>
@@ -262,8 +262,8 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
               <input className="gen-input" value={publishForm.tags} onChange={(e) => setPublishForm({ ...publishForm, tags: e.target.value })} placeholder="ai, workflow, automation" />
             </div>
             <div className="modal-actions">
-              <button className="modal-cancel" onClick={() => setShowPublishModal(false)}>Cancel</button>
-              <button className="modal-save" onClick={handlePublish}>Publish</button>
+              <button className="modal-cancel" onClick={() => setShowPublishModal(false)}>{t('chat.cancel')}</button>
+              <button className="modal-save" onClick={handlePublish}>{t('marketplace.publishBtn')}</button>
             </div>
           </div>
         </div>

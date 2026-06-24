@@ -165,7 +165,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
     <div className="panel-fullscreen" onClick={onClose}>
       <div className="agent-dashboard panel-fullscreen-inner" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><Bot size={20} /> Agent Dashboard</h2>
+          <h2><Bot size={20} /> {t('agents.title')}</h2>
           <div className="panel-header-right">
             <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English"><FlagIcon locale="en" /></button>
             <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский"><FlagIcon locale="ru" /></button>
@@ -176,14 +176,14 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
         <div className="agent-layout">
           <div className="agent-sidebar">
             <div className="agent-sidebar-header">
-              <span>Agents</span>
+              <span>{t('agents.agents')}</span>
               <button className="wf-btn" onClick={() => setShowCreateModal(true)}>
                 <Plus size={14} />
               </button>
             </div>
 
             {agents.length === 0 ? (
-              <p className="agent-empty">No agents yet. Create one to get started.</p>
+              <p className="agent-empty">{t('agents.noAgents')}</p>
             ) : (
               <div className="agent-list">
                 {agents.map((agent) => (
@@ -211,13 +211,13 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
 
             <div className="agent-sidebar-section">
               <div className="agent-sidebar-header">
-                <span><Cpu size={14} /> Orchestrate</span>
+                <span><Cpu size={14} /> {t('agents.orchestrate')}</span>
               </div>
               <textarea
                 className="agent-textarea"
                 value={orchestrateInput}
                 onChange={(e) => setOrchestrateInput(e.target.value)}
-                placeholder="Describe a complex task for multi-agent execution..."
+                placeholder={t('agents.orchestratePlaceholder')}
                 rows={3}
               />
               <button
@@ -225,7 +225,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
                 onClick={handleOrchestrate}
                 disabled={isOrchestrating || !orchestrateInput.trim()}
               >
-                {isOrchestrating ? <><Zap size={14} className="spin" /> Orchestrating...</> : <><Zap size={14} /> Run Orchestration</>}
+                {isOrchestrating ? <><Zap size={14} className="spin" /> {t('agents.orchestrating')}</> : <><Zap size={14} /> {t('agents.orchestrateBtn')}</>}
               </button>
             </div>
           </div>
@@ -240,9 +240,9 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
                 </div>
 
                 <div className="agent-runs-list">
-                  <h4>Recent Runs</h4>
+                  <h4>{t('agents.runHistory')}</h4>
                   {agentRuns.length === 0 ? (
-                    <p className="agent-empty">No runs yet.</p>
+                    <p className="agent-empty">{t('agents.noRuns')}</p>
                   ) : (
                     agentRuns.map((run) => (
                       <div key={run.id} className={`agent-run-item ${run.status}`}>
@@ -276,7 +276,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
             ) : (
               <div className="agent-main-empty">
                 <Bot size={48} />
-                <h3>Agent Dashboard</h3>
+                <h3>{t('agents.title')}</h3>
                 <p>Select an agent to view details, or use Orchestrate to run multi-agent tasks.</p>
 
                 {activeRuns.length > 0 && (
@@ -332,15 +332,15 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Create Agent</h3>
+              <h3>{t('agents.create')}</h3>
               <button className="modal-close" onClick={() => setShowCreateModal(false)}><X size={18} /></button>
             </div>
             <div className="gen-field">
-              <label>Name</label>
+              <label>{t('agents.agentName')}</label>
               <input className="gen-input" value={newAgent.name} onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })} placeholder="My Agent" />
             </div>
             <div className="gen-field" style={{ marginTop: '0.75rem' }}>
-              <label>Type</label>
+              <label>{t('agents.agentType')}</label>
               <div className="agent-type-grid">
                 {AGENT_TYPES.map((at) => (
                   <button
@@ -355,12 +355,12 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
               </div>
             </div>
             <div className="gen-field" style={{ marginTop: '0.75rem' }}>
-              <label>Description</label>
+              <label>{t('agents.agentDesc')}</label>
               <input className="gen-input" value={newAgent.description} onChange={(e) => setNewAgent({ ...newAgent, description: e.target.value })} placeholder="What does this agent do?" />
             </div>
             <div className="modal-actions">
-              <button className="modal-cancel" onClick={() => setShowCreateModal(false)}>Cancel</button>
-              <button className="modal-save" onClick={handleCreateAgent}>Create</button>
+              <button className="modal-cancel" onClick={() => setShowCreateModal(false)}>{t('chat.cancel')}</button>
+              <button className="modal-save" onClick={handleCreateAgent}>{t('agents.agentCreateBtn')}</button>
             </div>
           </div>
         </div>

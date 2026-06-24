@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ReactFlow, Controls, Background, addEdge, useNodesState, useEdgesState, Handle, Position, type Connection, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings, Mic } from 'lucide-react';
+import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings, Mic, ClipboardCheck } from 'lucide-react';
 import { api } from '../utils/apiClient';
 import { useI18n } from '../context/I18nContext';
 import { FlagIcon } from './FlagIcon';
@@ -105,6 +105,19 @@ const PROJECT_TYPES = {
       { ...ALL_PALETTE_NODES[1], label: 'Dialogue Writer', description: 'Write character dialogues', defaultConfig: { prompt: 'Write dialogues for this scenario:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Scene Visual', description: 'Visualize scene composition', defaultConfig: { prompt: 'Scene visualization: {{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Narrative', description: 'Write narrative descriptions', defaultConfig: { prompt: 'Write narrative for this scene:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  audit: {
+    label: 'Audit',
+    icon: <ClipboardCheck size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Document Scanner', description: 'Scan and extract key findings from document', defaultConfig: { prompt: 'Scan this document and extract key findings, risks, and compliance issues:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Risk Assessor', description: 'Evaluate risks and severity levels', defaultConfig: { prompt: 'Assess risks and severity levels for these findings:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Compliance Check', description: 'Verify against standards and regulations', defaultConfig: { prompt: 'Verify compliance against standards and regulations:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Summary Generator', description: 'Generate executive summary', defaultConfig: { prompt: 'Generate an executive audit summary:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[4], label: 'End' },
     ],
   },
