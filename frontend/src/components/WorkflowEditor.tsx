@@ -14,7 +14,7 @@ import {
   type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings } from 'lucide-react';
+import { X, Play, Save, Plus, Trash2, Pencil, FileText, Image, Wand2, Square, BookOpen, Video, Box, PenTool, Clapperboard, Layers, Settings, Mic } from 'lucide-react';
 import { api } from '../utils/apiClient';
 
 interface PaletteNodeDef {
@@ -74,6 +74,18 @@ const PROJECT_TYPES = {
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
       { ...ALL_PALETTE_NODES[1], label: 'Model Description', description: 'Describe 3D model specs', defaultConfig: { prompt: 'Describe this 3D model in detail including dimensions, materials, and texture:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Generate Texture', description: 'Create texture maps', defaultConfig: { prompt: 'Seamless texture for 3D model: {{input}}' } },
+      { ...ALL_PALETTE_NODES[4], label: 'End' },
+    ],
+  },
+  voice: {
+    label: 'Voice',
+    icon: <Mic size={14} />,
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Write Script', description: 'Write voiceover script', defaultConfig: { prompt: 'Write a natural-sounding voiceover script for: {{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Tone Adjust', description: 'Adjust tone and pacing', defaultConfig: { prompt: 'Rewrite this script with a specific tone and pacing for voice narration:\n\n{{input}}' } },
+      { ...ALL_PALETTE_NODES[3], label: 'Format for TTS', description: 'Optimize text for text-to-speech', defaultConfig: { template: '{{input}}' } },
+      { ...ALL_PALETTE_NODES[1], label: 'Multi-Language', description: 'Translate or adapt for other languages', defaultConfig: { prompt: 'Translate this voiceover script while preserving natural speech flow:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[4], label: 'End' },
     ],
   },
