@@ -8,6 +8,8 @@ const { logger, prisma, requireAdmin, checkSubscription, dailyCreditGrant } = re
 const app = express();
 const port = process.env.PORT || 5000;
 
+app.set('trust proxy', 1);
+
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
