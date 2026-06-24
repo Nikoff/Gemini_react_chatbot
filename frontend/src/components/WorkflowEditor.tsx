@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -107,6 +107,10 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && session) loadWorkflows();
+  }, [isOpen, session]);
 
   const onConnect = useCallback((params: Connection) => {
     setEdges((eds) => addEdge({ ...params, animated: true }, eds));
