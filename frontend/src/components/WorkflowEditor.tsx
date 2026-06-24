@@ -40,6 +40,7 @@ const PROJECT_TYPES = {
     icon: <BookOpen size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Write Article', description: 'Write blog post content', defaultConfig: { prompt: 'Write a detailed blog article about: {{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'SEO Optimize', description: 'Optimize for search engines', defaultConfig: { prompt: 'Optimize this article for SEO, add keywords and meta description:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Featured Image', description: 'Create blog featured image', defaultConfig: { prompt: 'Blog featured image for: {{input}}' } },
@@ -51,6 +52,7 @@ const PROJECT_TYPES = {
     icon: <Image size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Generate Image', description: 'Create image from prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Enhance Image', description: 'Refine and enhance image', defaultConfig: { prompt: 'Enhance and improve: {{input}}' } },
       { ...ALL_PALETTE_NODES[4], label: 'End' },
@@ -61,6 +63,7 @@ const PROJECT_TYPES = {
     icon: <Video size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Script Writer', description: 'Write video script', defaultConfig: { prompt: 'Write a video script for: {{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'StoryBoard', description: 'Generate storyboard frames', defaultConfig: { prompt: 'Storyboard frame for scene: {{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Scene Description', description: 'Describe each scene in detail', defaultConfig: { prompt: 'Describe this scene in detail for video production:\n\n{{input}}' } },
@@ -72,6 +75,7 @@ const PROJECT_TYPES = {
     icon: <Box size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Model Description', description: 'Describe 3D model specs', defaultConfig: { prompt: 'Describe this 3D model in detail including dimensions, materials, and texture:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Generate Texture', description: 'Create texture maps', defaultConfig: { prompt: 'Seamless texture for 3D model: {{input}}' } },
       { ...ALL_PALETTE_NODES[4], label: 'End' },
@@ -82,6 +86,7 @@ const PROJECT_TYPES = {
     icon: <Mic size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Write Script', description: 'Write voiceover script', defaultConfig: { prompt: 'Write a natural-sounding voiceover script for: {{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Tone Adjust', description: 'Adjust tone and pacing', defaultConfig: { prompt: 'Rewrite this script with a specific tone and pacing for voice narration:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[3], label: 'Format for TTS', description: 'Optimize text for text-to-speech', defaultConfig: { template: '{{input}}' } },
@@ -94,6 +99,7 @@ const PROJECT_TYPES = {
     icon: <PenTool size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Generate Text', description: 'Generate text content', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[3], label: 'Edit & Refine', description: 'Polish and format text', defaultConfig: { template: '{{input}}' } },
       { ...ALL_PALETTE_NODES[4], label: 'End' },
@@ -104,6 +110,7 @@ const PROJECT_TYPES = {
     icon: <Clapperboard size={14} />,
     nodes: [
       { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Character Writer', description: 'Create character profiles', defaultConfig: { prompt: 'Create detailed character profiles for: {{input}}' } },
       { ...ALL_PALETTE_NODES[1], label: 'Dialogue Writer', description: 'Write character dialogues', defaultConfig: { prompt: 'Write dialogues for this scenario:\n\n{{input}}' } },
       { ...ALL_PALETTE_NODES[2], label: 'Scene Visual', description: 'Visualize scene composition', defaultConfig: { prompt: 'Scene visualization: {{input}}' } },
@@ -114,12 +121,20 @@ const PROJECT_TYPES = {
   complex: {
     label: 'Complex',
     icon: <Layers size={14} />,
-    nodes: [...ALL_PALETTE_NODES],
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
+      ...ALL_PALETTE_NODES.slice(1),
+    ],
   },
   custom: {
     label: 'Custom',
     icon: <Settings size={14} />,
-    nodes: [...ALL_PALETTE_NODES],
+    nodes: [
+      { ...ALL_PALETTE_NODES[0], label: 'Start' },
+      { ...ALL_PALETTE_NODES[1], label: 'Text Prompt', description: 'Custom text prompt', defaultConfig: { prompt: '{{input}}' } },
+      ...ALL_PALETTE_NODES.slice(1),
+    ],
   },
 } as const;
 
