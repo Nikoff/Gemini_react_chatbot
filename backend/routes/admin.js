@@ -4,18 +4,19 @@ const requireAuth = require('../authMiddleware');
 module.exports = function(app, { requireAdmin }) {
   app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const users = await prisma.user.findMany({
-        select: { id: true, email: true, role: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      const usersWithStats = await Promise.all(users.map(async (user) => {
-        const threadCount = await prisma.thread.count({ where: { userId: user.id } });
-        const messageCount = await prisma.message.count({
-          where: { thread: { userId: user.id } },
-        });
-        return { ...user, threadCount, messageCount };
-      }));
+      const usersWithStats = await prisma.$queryRaw`
+        SELECT u.id, u.email, u.role, u."createdAt",
+          COALESCE(t.cnt, 0)::int as "threadCount",
+          COALESCE(m.cnt, 0)::int as "messageCount"
+        FROM "User" u
+        LEFT JOIN (SELECT "userId", COUNT(*) as cnt FROM "Thread" GROUP BY "userId") t ON t."userId" = u.id
+        LEFT JOIN (
+          SELECT th."userId", COUNT(*) as cnt
+          FROM "Message" msg JOIN "Thread" th ON msg."threadId" = th.id
+          GROUP BY th."userId"
+        ) m ON m."userId" = u.id
+        ORDER BY u."createdAt" DESC
+      `;
 
       res.json(usersWithStats);
     } catch (err) {

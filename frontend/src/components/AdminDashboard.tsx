@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Users, MessageSquare, ThumbsUp, Shield, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface User {
   id: string;
@@ -22,7 +22,7 @@ interface Stats {
 }
 
 interface Props {
-  session: any;
+  session: Session;
   onClose: () => void;
 }
 
@@ -34,12 +34,12 @@ export function AdminDashboard({ session, onClose }: Props) {
 
   const loadData = async () => {
     try {
-      const [usersRes, statsRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/users`, { headers: { 'Authorization': `Bearer ${session.access_token}` } }),
-        fetch(`${API_URL}/api/admin/stats`, { headers: { 'Authorization': `Bearer ${session.access_token}` } }),
+      const [usersData, statsData] = await Promise.all([
+        api<User[]>('/api/admin/users', { token: session.access_token }),
+        api<Stats>('/api/admin/stats', { token: session.access_token }),
       ]);
-      if (usersRes.ok) setUsers(await usersRes.json());
-      if (statsRes.ok) setStats(await statsRes.json());
+      setUsers(usersData);
+      setStats(statsData);
     } catch (err) {
       console.error('Failed to load admin data:', err);
     } finally {
@@ -54,10 +54,10 @@ export function AdminDashboard({ session, onClose }: Props) {
   const toggleAdmin = async (userId: string, currentRole: string) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     try {
-      await fetch(`${API_URL}/api/admin/users/${userId}/role`, {
+      await api(`/api/admin/users/${userId}/role`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ role: newRole }),
+        body: { role: newRole },
+        token: session.access_token,
       });
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
     } catch (err) {

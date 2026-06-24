@@ -9,7 +9,7 @@ export interface SSEChunk {
   modelUsed?: string;
   error?: string;
   name?: string;
-  args?: any;
+  args?: Record<string, unknown>;
   result?: string;
 }
 
@@ -17,7 +17,7 @@ export interface StreamCallbacks {
   onChunk?: (text: string, fullText: string) => void;
   onDone?: (usage: SSEChunk['usage'], modelUsed: string) => void;
   onError?: (error: string) => void;
-  onToolCall?: (name: string, args: any, result: string) => void;
+  onToolCall?: (name: string, args: Record<string, unknown>, result: string) => void;
 }
 
 export async function consumeSSEStream(
@@ -50,7 +50,7 @@ export async function consumeSSEStream(
         } else if (event.type === 'error' && event.error) {
           callbacks.onError?.(event.error);
         } else if (event.type === 'tool_call') {
-          callbacks.onToolCall?.(event.name || '', event.args, event.result || '');
+          callbacks.onToolCall?.(event.name || '', event.args || {}, event.result || '');
         }
       } catch {}
     }

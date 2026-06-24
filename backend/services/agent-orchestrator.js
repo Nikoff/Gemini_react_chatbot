@@ -84,7 +84,7 @@ async function runAgentPipeline(agentId, userId, input) {
 }
 
 async function orchestrateTask(taskDescription, userId) {
-  await addLog('orchestrator', 'info', `Starting orchestration for: ${taskDescription.substring(0, 100)}`);
+  logger.info(`[Orchestrate] Starting orchestration for: ${taskDescription.substring(0, 100)}`);
 
   const plannerAgent = createAgent('planner', {
     name: 'Task Planner',
@@ -103,7 +103,7 @@ async function orchestrateTask(taskDescription, userId) {
     };
   }
 
-  await addLog('orchestrator', 'info', `Plan generated: ${tasks.length} tasks`);
+  logger.info(`[Orchestrate] Plan generated: ${tasks.length} tasks`);
 
   const results = [];
   const completedTasks = new Set();
@@ -137,12 +137,12 @@ async function orchestrateTask(taskDescription, userId) {
         const result = await agent.run(taskInput);
         completedTasks.add(task.id);
 
-        await addLog('orchestrator', 'info', `Task "${task.title}" completed`);
+        logger.info(`[Orchestrate] Task "${task.title}" completed`);
         return { taskId: task.id, status: 'completed', output: result };
 
       } catch (err) {
         completedTasks.add(task.id);
-        await addLog('orchestrator', 'error', `Task "${task.title}" failed: ${err.message}`);
+        logger.error(`[Orchestrate] Task "${task.title}" failed: ${err.message}`);
         return { taskId: task.id, status: 'failed', error: err.message };
       }
     });

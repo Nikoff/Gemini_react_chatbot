@@ -1,4 +1,5 @@
 const { prisma, ai, chatSchema, ALLOWED_MODELS, logger } = require('../middleware/shared');
+const { evaluate } = require('mathjs');
 const requireAuth = require('../authMiddleware');
 
 module.exports = function(app, { checkSubscription, chatLimiter }) {
@@ -8,7 +9,7 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
       return res.status(400).json({ error: 'Invalid request body.', details: parsed.error.issues });
     }
 
-    const { messages, model, threadId } = parsed.data;
+      const { messages, model, threadId } = parsed.data;
     const targetModel = model || 'gemini-2.5-flash';
     const userId = req.user.sub;
 
@@ -131,6 +132,13 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
       return res.status(400).json({ error: 'Model not allowed.' });
     }
 
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
     try {
       const thread = await prisma.thread.findUnique({ where: { id: threadId } });
       if (!thread || thread.userId !== req.user.sub) {
@@ -192,13 +200,7 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
           let result = '';
           if (call.name === 'calculator') {
             try {
-              const expr = call.args.expression;
-              if (!/^[\d\s+\-*/().%]+$/.test(expr)) {
-                result = 'Error: Invalid characters in expression';
-              } else {
-                const safeEval = Function('"use strict"; return (' + expr + ')');
-                result = String(safeEval());
-              }
+              result = String(evaluate(call.args.expression));
             } catch { result = 'Error: Invalid expression'; }
             } else if (call.name === 'get_current_time') {
               result = new Date().toISOString();
@@ -207,6 +209,29 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
             formattedHistory.push({ role: 'model', parts: [{ functionCall: call }] });
             formattedHistory.push({ role: 'user', parts: [{ functionResponse: { name: call.name, response: { result } } }] });
           }
+
+          const tools = [
+            {
+              functionDeclarations: [
+                {
+                  name: 'calculator',
+                  description: 'Perform mathematical calculations. Use this for math problems, unit conversions, or any computation.',
+                  parameters: {
+                    type: 'OBJECT',
+                    properties: {
+                      expression: { type: 'STRING', description: 'The mathematical expression to evaluate' },
+                    },
+                    required: ['expression'],
+                  },
+                },
+                {
+                  name: 'get_current_time',
+                  description: 'Get the current date and time.',
+                  parameters: { type: 'OBJECT', properties: {} },
+                },
+              ],
+            },
+          ];
 
           const secondStream = await ai.models.generateContentStream({ model: targetModel, contents: formattedHistory, tools });
           for await (const chunk2 of secondStream) {

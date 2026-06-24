@@ -31,10 +31,17 @@ const errorFileTransport = new winston.transports.DailyRotateFile({
 const logger = winston.createLogger({
   format: logFormat,
   transports: [
-    new winston.transports.Console({ level: 'debug' }), // Real-time CLI feedback
     fileTransport,
     errorFileTransport
   ]
 });
+
+if (process.env.NODE_ENV === 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.json(),
+  }));
+} else {
+  logger.add(new winston.transports.Console({ level: 'debug' }));
+}
 
 module.exports = logger;

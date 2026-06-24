@@ -148,7 +148,7 @@ module.exports = {
       });
       const tier = user?.subscription?.status === 'active' ? 'pro' : 'free';
       await grantDailyCredits(req.user.sub, tier);
-    } catch {}
+    } catch (err) { logger.error(`dailyCreditGrant failed for ${req.user?.sub}: ${err.message}`); }
     next();
   },
 };

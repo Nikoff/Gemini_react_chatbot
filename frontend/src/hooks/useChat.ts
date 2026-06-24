@@ -1,11 +1,10 @@
 import { useState, useCallback } from 'react';
 import { consumeSSEStream } from '../utils/sseStream';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api, apiStream, APIError } from '../utils/apiClient';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; audio?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
 
-function updateMessagesWithAI(setMessages: any, aiText: string) {
+function updateMessagesWithAI(setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>, aiText: string) {
   setMessages((prev: ChatMessage[]) => {
     const updated = [...prev];
     const lastIdx = updated.length - 1;
@@ -18,19 +17,14 @@ function updateMessagesWithAI(setMessages: any, aiText: string) {
   });
 }
 
-export function useChat(_session: any, trackRequest: (i: number, o: number, t: number, ms: number, model: string) => void) {
+export function useChat(trackRequest: (i: number, o: number, t: number, ms: number, model: string) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 
   const loadMessages = useCallback(async (token: string, threadId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}/messages`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setMessages(data);
-      }
+      const data = await api<ChatMessage[]>(`/api/threads/${threadId}/messages`, { token });
+      if (Array.isArray(data)) setMessages(data);
     } catch (err) {
       console.error('Failed to load messages:', err);
     }
@@ -52,13 +46,10 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
     setIsThinking(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ messages: updatedMessages, model, threadId })
+      const response = await apiStream('/api/chat', {
+        body: { messages: updatedMessages, model, threadId },
+        token,
       });
-
-      if (!response.ok) return;
 
       let aiText = '';
       await consumeSSEStream(response, {
@@ -72,6 +63,7 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
         },
       });
     } catch (err) {
+      if (err instanceof APIError && err.status !== 200) return;
       console.error('Stream failed:', err);
     } finally {
       setIsThinking(false);
@@ -80,15 +72,12 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
 
   const editMessage = useCallback(async (token: string, messageId: string, content: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/messages/${messageId}`, {
+      const data = await api<{ content: string; editedAt: string }>(`/api/messages/${messageId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ content })
+        body: { content },
+        token,
       });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, text: data.content, editedAt: data.editedAt } : m));
-      }
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, text: data.content, editedAt: data.editedAt } : m));
     } catch (err) {
       console.error('Edit failed:', err);
     }
@@ -96,10 +85,10 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
 
   const sendFeedback = useCallback(async (token: string, messageId: string, rating: number) => {
     try {
-      await fetch(`${API_URL}/api/messages/${messageId}/feedback`, {
+      await api(`/api/messages/${messageId}/feedback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ rating })
+        body: { rating },
+        token,
       });
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, feedback: { rating } } : m));
     } catch (err) {
@@ -110,13 +99,10 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
   const regenerate = useCallback(async (token: string, messageId: string, threadId: string, model: string) => {
     setIsThinking(true);
     try {
-      const response = await fetch(`${API_URL}/api/threads/${threadId}/regenerate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ messageId, model })
+      const response = await apiStream(`/api/threads/${threadId}/regenerate`, {
+        body: { messageId, model },
+        token,
       });
-
-      if (!response.ok) return;
 
       let aiText = '';
       await consumeSSEStream(response, {

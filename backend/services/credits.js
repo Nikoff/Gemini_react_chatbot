@@ -51,29 +51,19 @@ async function grantDailyCredits(userId, tier) {
 }
 
 async function spendCredits(userId, amount, reason, executionId) {
-  const credit = await getOrCreateCredit(userId);
-
-  if (credit.balance < amount) {
-    return { success: false, balance: credit.balance, needed: amount };
-  }
-
-  await prisma.$transaction([
-    prisma.credit.update({
-      where: { userId },
-      data: { balance: { decrement: amount } },
-    }),
-    prisma.creditTransaction.create({
-      data: {
-        userId,
-        amount: -amount,
-        reason,
-        executionId: executionId || null,
-      },
-    }),
-  ]);
-
-  logger.info(`Deducted ${amount} credits from user ${userId} for ${reason}`);
-  return { success: true, balance: credit.balance - amount };
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw`SELECT balance FROM "Credit" WHERE "userId" = ${userId} FOR UPDATE`;
+    if (!rows.length) {
+      const created = await tx.credit.create({ data: { userId, balance: 100 } });
+      rows.push(created);
+    }
+    const balance = rows[0].balance;
+    if (balance < amount) return { success: false, balance, needed: amount };
+    await tx.credit.update({ where: { userId }, data: { balance: { decrement: amount } } });
+    await tx.creditTransaction.create({ data: { userId, amount: -amount, reason, executionId: executionId || null } });
+    logger.info(`Deducted ${amount} credits from user ${userId} for ${reason}`);
+    return { success: true, balance: balance - amount };
+  });
 }
 
 async function addCredits(userId, amount, reason) {

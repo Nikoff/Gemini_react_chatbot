@@ -1,8 +1,7 @@
 import { Bot, Check, Zap, Users, Star, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useI18n } from '../context/I18nContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface Props {
   onLogin: () => void;
@@ -67,19 +66,12 @@ export function LandingPage({ onLogin }: Props) {
         return;
       }
 
-      const res = await fetch(`${API_URL}/api/subscription/checkout`, {
+      const { url } = await api<{ url: string }>('/api/subscription/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ priceId }),
+        body: { priceId },
+        token: session.access_token,
       });
-
-      if (res.ok) {
-        const { url } = await res.json();
-        window.location.href = url;
-      }
+      window.location.href = url;
     } catch (err) {
       console.error('Checkout failed:', err);
     }

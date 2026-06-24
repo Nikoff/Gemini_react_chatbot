@@ -115,7 +115,7 @@ module.exports = function(app) {
       res.json(result);
     } catch (err) {
       logger.error(`POST /api/agents/:id/run failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Agent execution failed.' });
     }
   });
 
@@ -154,7 +154,7 @@ module.exports = function(app) {
       res.json(result);
     } catch (err) {
       logger.error(`POST /api/agents/orchestrate failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Task orchestration failed.' });
     }
   });
 };

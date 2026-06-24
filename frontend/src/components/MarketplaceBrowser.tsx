@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Store, Search, Star, Download, ShoppingCart, X, Plus } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface MarketplaceItem {
   id: string;
@@ -21,7 +21,7 @@ interface MarketplaceItem {
 }
 
 interface Props {
-  session: any;
+  session: Session;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -63,8 +63,8 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
       params.set('sort', sortBy);
       if (search) params.set('q', search);
 
-      const res = await fetch(`${API_URL}/api/marketplace?${params}`);
-      if (res.ok) setItems(await res.json());
+      const data = await api<MarketplaceItem[]>(`/api/marketplace?${params}`);
+      setItems(data);
     } catch {}
   };
 
@@ -73,18 +73,12 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
   const handlePurchase = async (item: MarketplaceItem) => {
     setIsPurchasing(true);
     try {
-      const res = await fetch(`${API_URL}/api/marketplace/${item.id}/purchase`, {
+      await api(`/api/marketplace/${item.id}/purchase`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        token: session.access_token,
       });
-
-      if (res.ok) {
-        setSelectedItem(null);
-        loadItems();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Purchase failed');
-      }
+      setSelectedItem(null);
+      loadItems();
     } catch {
       alert('Purchase failed');
     } finally {
@@ -96,27 +90,22 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
     if (!publishForm.name.trim()) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/marketplace`, {
+      await api('/api/marketplace', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
+        body: {
           name: publishForm.name.trim(),
           description: publishForm.description.trim() || null,
           type: publishForm.type,
           price: publishForm.price,
           content: { placeholder: true },
           tags: publishForm.tags ? publishForm.tags.split(',').map(t => t.trim()) : [],
-        }),
+        },
+        token: session.access_token,
       });
 
-      if (res.ok) {
-        setShowPublishModal(false);
-        setPublishForm({ name: '', description: '', type: 'workflow', price: 0, tags: '' });
-        loadItems();
-      }
+      setShowPublishModal(false);
+      setPublishForm({ name: '', description: '', type: 'workflow', price: 0, tags: '' });
+      loadItems();
     } catch {}
   };
 

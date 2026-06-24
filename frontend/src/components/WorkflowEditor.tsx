@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import {
   ReactFlow,
   Controls,
@@ -14,8 +15,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { X, Play, Save, Plus, Trash2, FileText, Image, Wand2, Square } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 const NODE_TYPES_CONFIG = [
   { type: 'input', label: 'Input', icon: <Plus size={14} />, color: '#10b981', description: 'Provide input data' },
@@ -26,12 +26,34 @@ const NODE_TYPES_CONFIG = [
 ];
 
 interface Props {
-  session: any;
+  session: Session;
   isOpen: boolean;
   onClose: () => void;
 }
 
-function CustomNode({ data, selected }: { data: any; selected?: boolean }) {
+interface GraphNode {
+  id: string;
+  type: string;
+  config?: Record<string, string>;
+  position?: { x: number; y: number };
+}
+
+interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  graph: { nodes: GraphNode[]; edges: GraphEdge[] };
+}
+
+function CustomNode({ data, selected }: { data: Record<string, unknown> & { nodeType: string; label?: string; config?: Record<string, string>; onConfigChange?: (key: string, value: string) => void }; selected?: boolean }) {
   const config = NODE_TYPES_CONFIG.find(n => n.type === data.nodeType) || NODE_TYPES_CONFIG[0];
 
   return (
@@ -102,10 +124,10 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
   const [isRunning, setIsRunning] = useState(false);
-  const [executionResult, setExecutionResult] = useState<any>(null);
-  const [nodeConfigs, setNodeConfigs] = useState<Record<string, any>>({});
+  const [executionResult, setExecutionResult] = useState<{ status: string; creditsUsed?: number; error?: string } | null>(null);
+  const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, string>>>({});
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,8 +161,8 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
   };
 
   const deleteSelected = () => {
-    setNodes((nds) => nds.filter((n) => !(n as any).selected));
-    setEdges((eds) => eds.filter((e) => !(e as any).sourceNode?.selected && !(e as any).targetNode?.selected));
+    setNodes((nds) => nds.filter((n) => !(n as Node & { selected?: boolean }).selected));
+    setEdges((eds) => eds.filter((e) => !(e.sourceNode as unknown as { selected?: boolean })?.selected && !(e.targetNode as unknown as { selected?: boolean })?.selected));
   };
 
   const handleSave = async () => {
@@ -149,7 +171,7 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
     const graph = {
       nodes: nodes.map(n => ({
         id: n.id,
-        type: n.data.nodeType,
+        type: (n.data as Record<string, string>).nodeType,
         config: nodeConfigs[n.id] || {},
         position: n.position,
       })),
@@ -165,28 +187,22 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
     try {
       const method = selectedWorkflowId ? 'PUT' : 'POST';
       const url = selectedWorkflowId
-        ? `${API_URL}/api/workflows/${selectedWorkflowId}`
-        : `${API_URL}/api/workflows`;
+        ? `/api/workflows/${selectedWorkflowId}`
+        : '/api/workflows';
 
-      const res = await fetch(url, {
+      const workflow = await api<Workflow>(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
+        body: {
           name: workflowName,
           description: workflowDescription,
           graph,
-        }),
+        },
+        token: session.access_token,
       });
 
-      if (res.ok) {
-        const workflow = await res.json();
-        setSelectedWorkflowId(workflow.id);
-        setShowSaveModal(false);
-        loadWorkflows();
-      }
+      setSelectedWorkflowId(workflow.id);
+      setShowSaveModal(false);
+      loadWorkflows();
     } catch (err) {
       console.error('Save failed:', err);
     }
@@ -202,16 +218,14 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
     setExecutionResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/workflows/${selectedWorkflowId}/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+      const data = await api<{ status: string; creditsUsed?: number; error?: string }>(
+        `/api/workflows/${selectedWorkflowId}/execute`,
+        {
+          method: 'POST',
+          body: { input: {} },
+          token: session.access_token,
         },
-        body: JSON.stringify({ input: {} }),
-      });
-
-      const data = await res.json();
+      );
       setExecutionResult(data);
     } catch (err) {
       setExecutionResult({ status: 'failed', error: 'Execution failed' });
@@ -222,61 +236,54 @@ export function WorkflowEditor({ session, isOpen, onClose }: Props) {
 
   const loadWorkflows = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/workflows`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) setWorkflows(await res.json());
+      const data = await api<Workflow[]>('/api/workflows', { token: session.access_token });
+      setWorkflows(data);
     } catch {}
   };
 
   const loadWorkflow = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/workflows/${id}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        const workflow = await res.json();
-        setSelectedWorkflowId(workflow.id);
-        setWorkflowName(workflow.name);
-        setWorkflowDescription(workflow.description || '');
+      const workflow = await api<Workflow>(`/api/workflows/${id}`, { token: session.access_token });
+      setSelectedWorkflowId(workflow.id);
+      setWorkflowName(workflow.name);
+      setWorkflowDescription(workflow.description || '');
 
-        const graph = workflow.graph;
-        const loadedNodes: Node[] = graph.nodes.map((n: any) => ({
-          id: n.id,
-          type: 'custom',
-          position: n.position || { x: 250, y: 100 },
-          data: {
-            nodeType: n.type,
-            label: NODE_TYPES_CONFIG.find(c => c.type === n.type)?.label || n.type,
-            config: n.config || {},
-            onConfigChange: (key: string, value: string) => {
-              setNodeConfigs(prev => ({
-                ...prev,
-                [n.id]: { ...(prev[n.id] || {}), [key]: value },
-              }));
-            },
+      const graph = workflow.graph;
+      const loadedNodes: Node[] = graph.nodes.map((n) => ({
+        id: n.id,
+        type: 'custom',
+        position: n.position || { x: 250, y: 100 },
+        data: {
+          nodeType: n.type,
+          label: NODE_TYPES_CONFIG.find(c => c.type === n.type)?.label || n.type,
+          config: n.config || {},
+          onConfigChange: (key: string, value: string) => {
+            setNodeConfigs(prev => ({
+              ...prev,
+              [n.id]: { ...(prev[n.id] || {}), [key]: value },
+            }));
           },
-        }));
+        },
+      }));
 
-        const loadedEdges: Edge[] = graph.edges.map((e: any) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          animated: true,
-          style: { stroke: '#64748b' },
-        }));
+      const loadedEdges: Edge[] = graph.edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        animated: true,
+        style: { stroke: '#64748b' },
+      }));
 
-        const configs: Record<string, any> = {};
-        for (const n of graph.nodes) {
-          if (n.config) configs[n.id] = n.config;
-        }
-        setNodeConfigs(configs);
-
-        setNodes(loadedNodes);
-        setEdges(loadedEdges);
+      const configs: Record<string, Record<string, string>> = {};
+      for (const n of graph.nodes) {
+        if (n.config) configs[n.id] = n.config;
       }
+      setNodeConfigs(configs);
+
+      setNodes(loadedNodes);
+      setEdges(loadedEdges);
     } catch {}
   };
 

@@ -68,6 +68,15 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
       },
     });
 
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const sendEvent = (type, data) => {
+      res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+    };
+
     try {
       const workflow = buildTextToImageWorkflow(prompt, {
         negativePrompt,
@@ -81,13 +90,19 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
         checkpoint: checkpoint || undefined,
       });
 
+      sendEvent('progress', { value: 0, max: 10, message: 'Queuing prompt...' });
+
       const { prompt_id } = await comfyui.queuePrompt(workflow);
 
       logger.info(`Queued ComfyUI prompt ${prompt_id} for user ${userId}`);
 
+      sendEvent('progress', { value: 1, max: 10, message: 'Prompt queued, processing...' });
+
       const history = await comfyui.waitForCompletion(prompt_id, (value, max) => {
-        logger.debug(`ComfyUI progress: ${value}/${max}`);
+        sendEvent('progress', { value, max, message: `Processing: ${value}/${max}` });
       });
+
+      sendEvent('progress', { value: 10, max: 10, message: 'Retrieving image...' });
 
       const promptHistory = history[prompt_id];
       let imageFilename = null;
@@ -121,7 +136,7 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
         },
       });
 
-      res.json({
+      sendEvent('complete', {
         success: true,
         executionId: execution.id,
         image: imageData ? {
@@ -132,6 +147,8 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
         creditsUsed: cost,
         remainingCredits: deduction.balance,
       });
+
+      res.end();
 
     } catch (err) {
       logger.error(`ComfyUI generation failed: ${err.message}`);
@@ -145,7 +162,8 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
         },
       });
 
-      res.status(500).json({ error: 'Image generation failed.', details: err.message });
+      sendEvent('error', { error: 'Image generation failed.' });
+      res.end();
     }
   });
 
@@ -251,7 +269,7 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
         },
       });
 
-      res.status(500).json({ error: 'Image generation failed.', details: err.message });
+      res.status(500).json({ error: 'Image generation failed.' });
     }
   });
 

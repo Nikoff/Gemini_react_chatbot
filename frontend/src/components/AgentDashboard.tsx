@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Bot, Play, CheckCircle, XCircle, Clock, Plus, X, Trash2, Cpu, Zap } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface Agent {
   id: string;
   name: string;
   type: string;
   description: string | null;
-  config: any;
+  config: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -16,8 +16,8 @@ interface AgentRun {
   id: string;
   agentId: string;
   status: string;
-  input: any;
-  output: any;
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
   logs: { timestamp: string; level: string; message: string }[];
   creditsUsed: number;
   error: string | null;
@@ -36,7 +36,7 @@ const AGENT_TYPES = [
 ];
 
 interface Props {
-  session: any;
+  session: Session;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -48,7 +48,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
   const [orchestrateInput, setOrchestrateInput] = useState('');
   const [isOrchestrating, setIsOrchestrating] = useState(false);
-  const [orchestrateResult, setOrchestrateResult] = useState<any>(null);
+  const [orchestrateResult, setOrchestrateResult] = useState<{ status: string; plan?: { title: string; agentType: string }[]; results?: { taskId: string; status: string; error?: string }[] } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', type: 'generator', description: '', model: 'gemini-2.5-flash' });
 
@@ -61,28 +61,22 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
 
   const loadAgents = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/agents`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) setAgents(await res.json());
+      const data = await api<Agent[]>('/api/agents', { token: session.access_token });
+      setAgents(data);
     } catch {}
   };
 
   const loadActiveRuns = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/agents/runs/active`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) setActiveRuns(await res.json());
+      const data = await api<AgentRun[]>('/api/agents/runs/active', { token: session.access_token });
+      setActiveRuns(data);
     } catch {}
   };
 
   const loadAgentRuns = async (agentId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/agents/${agentId}/runs?limit=10`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) setAgentRuns(await res.json());
+      const data = await api<AgentRun[]>(`/api/agents/${agentId}/runs?limit=10`, { token: session.access_token });
+      setAgentRuns(data);
     } catch {}
   };
 
@@ -90,38 +84,28 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
     if (!newAgent.name.trim()) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/agents`, {
+      await api('/api/agents', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(newAgent),
+        body: newAgent,
+        token: session.access_token,
       });
 
-      if (res.ok) {
-        setShowCreateModal(false);
-        setNewAgent({ name: '', type: 'generator', description: '', model: 'gemini-2.5-flash' });
-        loadAgents();
-      }
+      setShowCreateModal(false);
+      setNewAgent({ name: '', type: 'generator', description: '', model: 'gemini-2.5-flash' });
+      loadAgents();
     } catch {}
   };
 
   const handleRunAgent = async (agentId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/agents/${agentId}/run`, {
+      await api(`/api/agents/${agentId}/run`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ input: { task: 'Execute agent task' } }),
+        body: { input: { task: 'Execute agent task' } },
+        token: session.access_token,
       });
 
-      if (res.ok) {
-        loadActiveRuns();
-        if (selectedAgent?.id === agentId) loadAgentRuns(agentId);
-      }
+      loadActiveRuns();
+      if (selectedAgent?.id === agentId) loadAgentRuns(agentId);
     } catch {}
   };
 
@@ -132,16 +116,14 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
     setOrchestrateResult(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/agents/orchestrate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+      const data = await api<{ status: string; plan?: { title: string; agentType: string }[]; results?: { taskId: string; status: string; error?: string }[] }>(
+        '/api/agents/orchestrate',
+        {
+          method: 'POST',
+          body: { task: orchestrateInput.trim() },
+          token: session.access_token,
         },
-        body: JSON.stringify({ task: orchestrateInput.trim() }),
-      });
-
-      const data = await res.json();
+      );
       setOrchestrateResult(data);
     } catch (err) {
       setOrchestrateResult({ status: 'failed', error: 'Orchestration failed' });
@@ -152,9 +134,9 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
 
   const handleDeleteAgent = async (agentId: string) => {
     try {
-      await fetch(`${API_URL}/api/agents/${agentId}`, {
+      await api(`/api/agents/${agentId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        token: session.access_token,
       });
       loadAgents();
       if (selectedAgent?.id === agentId) {
@@ -313,7 +295,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
                     </div>
                     {orchestrateResult.plan && (
                       <div className="agent-plan">
-                        {orchestrateResult.plan.map((task: any, i: number) => (
+                        {orchestrateResult.plan.map((task, i) => (
                           <div key={i} className="agent-plan-task">
                             <span className="agent-plan-title">{task.title}</span>
                             <span className="agent-plan-type">{task.agentType}</span>
@@ -323,7 +305,7 @@ export function AgentDashboard({ session, isOpen, onClose }: Props) {
                     )}
                     {orchestrateResult.results && (
                       <div className="agent-results">
-                        {orchestrateResult.results.map((r: any, i: number) => (
+                        {orchestrateResult.results.map((r, i) => (
                           <div key={i} className={`agent-result-item ${r.status}`}>
                             <span>Task {r.taskId}: {r.status}</span>
                             {r.error && <span className="agent-run-error">{r.error}</span>}

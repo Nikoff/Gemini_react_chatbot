@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { useStats } from './context/StatsContext';
 import { useTheme } from './context/ThemeContext';
 import { StatsDashboard } from './components/StatsDashboard';
@@ -23,28 +24,24 @@ import { useThreads } from './hooks/useThreads';
 import { useChat } from './hooks/useChat';
 import { useVoiceRecording } from './hooks/useVoiceRecording';
 import { useImageUpload } from './hooks/useImageUpload';
+import { usePanelState } from './hooks/usePanelState';
 import { supabase } from './supabaseClient';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from './utils/apiClient';
 
 export default function App() {
   const { trackRequest } = useStats();
   const { theme } = useTheme();
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth > 768);
   const [input, setInput] = useState('');
-  const [showAdmin, setShowAdmin] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [showGeneration, setShowGeneration] = useState(false);
-  const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
-  const [showAgentDashboard, setShowAgentDashboard] = useState(false);
-  const [showMarketplace, setShowMarketplace] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('onboarding_complete'));
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const { threads, setThreads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
-  const { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback, regenerate } = useChat(session, trackRequest);
+  const { activePanel, openPanel, closePanel } = usePanelState();
+
+  const { threads, setThreads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads();
+  const { messages, setMessages, isThinking, loadMessages, sendMessage, editMessage, sendFeedback, regenerate } = useChat(trackRequest);
   const { isRecording, pendingAudio, startRecording, stopRecording, clearAudio } = useVoiceRecording();
   const { pendingImage, fileInputRef, handleImageSelect, clearImage } = useImageUpload();
 
@@ -77,7 +74,7 @@ export default function App() {
 
   const handleSubmit = () => {
     if (!input.trim() && !pendingImage && !pendingAudio) return;
-    sendMessage(session.access_token, input, currentThreadId, selectedModel, pendingImage, pendingAudio);
+    sendMessage(session!.access_token, input, currentThreadId, selectedModel, pendingImage, pendingAudio);
     setInput('');
     clearImage();
     clearAudio();
@@ -86,10 +83,10 @@ export default function App() {
   const handleSystemPromptChange = async (threadId: string, prompt: string | null) => {
     if (!session) return;
     try {
-      await fetch(`${API_URL}/api/threads/${threadId}/system-prompt`, {
+      await api(`/api/threads/${threadId}/system-prompt`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ systemPrompt: prompt })
+        body: { systemPrompt: prompt },
+        token: session.access_token,
       });
       setThreads(prev => prev.map(t => t.id === threadId ? { ...t, systemPrompt: prompt } : t));
     } catch (err) {
@@ -104,8 +101,8 @@ export default function App() {
   };
 
   if (!session) {
-    if (showAuth) return <AuthScreen />;
-    return <LandingPage onLogin={() => setShowAuth(true)} />;
+    if (activePanel === 'auth') return <AuthScreen />;
+    return <LandingPage onLogin={() => openPanel('auth')} />;
   }
 
   return (
@@ -124,7 +121,7 @@ export default function App() {
         onRenameThread={(id, title) => renameThread(session.access_token, id, title)}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onSystemPromptChange={handleSystemPromptChange}
-        onOpenAdmin={() => setShowAdmin(true)}
+        onOpenAdmin={() => openPanel('admin')}
       />
 
       <main className="chat-interface-stream-pane">
@@ -164,24 +161,24 @@ export default function App() {
 
       <StatsDashboard />
       <PanelErrorBoundary name="Admin">
-        {showAdmin && <AdminDashboard session={session} onClose={() => setShowAdmin(false)} />}
+        {activePanel === 'admin' && <AdminDashboard session={session} onClose={closePanel} />}
       </PanelErrorBoundary>
       <PanelErrorBoundary name="Generation">
-        <GenerationPanel session={session} isOpen={showGeneration} onClose={() => setShowGeneration(false)} />
+        <GenerationPanel session={session} isOpen={activePanel === 'generation'} onClose={closePanel} />
       </PanelErrorBoundary>
       <PanelErrorBoundary name="Workflow Editor">
-        <WorkflowEditor session={session} isOpen={showWorkflowEditor} onClose={() => setShowWorkflowEditor(false)} />
+        <WorkflowEditor session={session} isOpen={activePanel === 'workflow'} onClose={closePanel} />
       </PanelErrorBoundary>
       <PanelErrorBoundary name="Agent Dashboard">
-        <AgentDashboard session={session} isOpen={showAgentDashboard} onClose={() => setShowAgentDashboard(false)} />
+        <AgentDashboard session={session} isOpen={activePanel === 'agents'} onClose={closePanel} />
       </PanelErrorBoundary>
       <PanelErrorBoundary name="Marketplace">
-        <MarketplaceBrowser session={session} isOpen={showMarketplace} onClose={() => setShowMarketplace(false)} />
+        <MarketplaceBrowser session={session} isOpen={activePanel === 'marketplace'} onClose={closePanel} />
       </PanelErrorBoundary>
       {theme === 'living-canvas' && <LivingCanvas />}
       {theme === 'neural' && <NeuralCanvas />}
       {theme === 'blackhole' && <BlackHoleCanvas />}
-      <ThemeSwitcher onOpenGeneration={() => setShowGeneration(true)} onOpenWorkflowEditor={() => setShowWorkflowEditor(true)} onOpenAgentDashboard={() => setShowAgentDashboard(true)} onOpenMarketplace={() => setShowMarketplace(true)} />
+      <ThemeSwitcher onOpenGeneration={() => openPanel('generation')} onOpenWorkflowEditor={() => openPanel('workflow')} onOpenAgentDashboard={() => openPanel('agents')} onOpenMarketplace={() => openPanel('marketplace')} />
       <OnboardingTutorial isOpen={showOnboarding} onClose={() => { setShowOnboarding(false); localStorage.setItem('onboarding_complete', '1'); }} />
     </div>
   );

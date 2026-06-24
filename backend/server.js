@@ -1,9 +1,11 @@
 require('dotenv').config();
+const { randomUUID } = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { logger, prisma, requireAdmin, checkSubscription, dailyCreditGrant } = require('./middleware/shared');
+const { ComfyUIClient } = require('./services/comfyui');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -33,22 +35,102 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
+
+app.use((req, res, next) => {
+  req.id = randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
 app.use('/api/', globalLimiter);
 app.use('/api/', dailyCreditGrant);
 
+const imageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many image generation requests.' },
+});
+
+const agentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many agent requests.' },
+});
+
+const marketplaceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many marketplace requests.' },
+});
+
+const timeout = (ms) => (req, res, next) => {
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timed out.' });
+    }
+  }, ms);
+  res.on('finish', () => clearTimeout(timer));
+  next();
+};
+
+const comfyui = new ComfyUIClient(process.env.COMFYUI_URL || 'http://127.0.0.1:8188');
+
 app.get('/api/health', async (req, res) => {
-  const health = { status: 'ok', timestamp: new Date().toISOString(), services: {} };
+  const mem = process.memoryUsage();
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: { rss: mem.rss, heapUsed: mem.heapUsed },
+    services: {},
+  };
 
   try {
     await prisma.$queryRaw`SELECT 1`;
-    health.services.database = 'ok';
+    health.services.database = 'connected';
   } catch {
     health.services.database = 'error';
     health.status = 'degraded';
   }
 
+  health.services.gemini = process.env.GEMINI_API_KEY ? 'configured' : 'missing';
+
+  try {
+    await comfyui.getSystemStats();
+    health.services.comfyui = 'available';
+  } catch {
+    health.services.comfyui = 'unavailable';
+  }
+
   res.json(health);
 });
+
+const pathTimeout = (pattern, ms) => (req, res, next) => {
+  if (!req.path.startsWith(pattern)) return next();
+  const timer = setTimeout(() => {
+    if (!res.headersSent) res.status(504).json({ error: 'Request timed out.' });
+  }, ms);
+  res.on('finish', () => clearTimeout(timer));
+  next();
+};
+
+const pathLimiter = (pattern, limiter) => (req, res, next) => {
+  if (!req.path.startsWith(pattern)) return next();
+  limiter(req, res, next);
+};
+
+app.use(pathTimeout('/api/generate', 120000));
+app.use(pathTimeout('/api/agents', 300000));
+
+app.use(pathLimiter('/api/generate', imageLimiter));
+app.use(pathLimiter('/api/agents', agentLimiter));
+app.use(pathLimiter('/api/marketplace', marketplaceLimiter));
 
 require('./routes/auth')(app);
 require('./routes/threads')(app);
@@ -69,7 +151,7 @@ app.use((req, res, next) => {
     const diff = process.hrtime(startTime);
     const durationMs = ((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2);
     const level = res.statusCode >= 400 ? 'error' : 'info';
-    logger[level](`${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
+    logger[level](`[${req.id}] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
   });
 
   next();

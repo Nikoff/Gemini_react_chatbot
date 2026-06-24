@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Image, Sparkles, Download, X, Loader2, Coins, AlertCircle } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface GenerationHistory {
   id: string;
   status: string;
-  input: { prompt?: string; width?: number; height?: number; [key: string]: any };
-  output: any;
+  input: { prompt?: string; width?: number; height?: number; [key: string]: string | number | undefined };
+  output: Record<string, unknown> | null;
   creditsUsed: number;
   createdAt: string;
   completedAt: string | null;
 }
 
 interface Props {
-  session: any;
+  session: Session;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -40,25 +40,15 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
 
   const loadCredits = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/credits`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCredits(data.balance);
-      }
+      const data = await api<{ balance: number }>('/api/credits', { token: session.access_token });
+      setCredits(data.balance);
     } catch {}
   };
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/generate/history?limit=10`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data);
-      }
+      const data = await api<GenerationHistory[]>('/api/generate/history?limit=10', { token: session.access_token });
+      setHistory(data);
     } catch {}
   };
 
@@ -70,25 +60,23 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
     setGeneratedImage(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/generate/image`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+      const data = await api<{ image?: { data: string; mimeType: string }; error?: string; remainingCredits?: number }>(
+        '/api/generate/image',
+        {
+          method: 'POST',
+          body: {
+            prompt: prompt.trim(),
+            negativePrompt: negativePrompt.trim() || undefined,
+            width,
+            height,
+            steps,
+          },
+          token: session.access_token,
         },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          negativePrompt: negativePrompt.trim() || undefined,
-          width,
-          height,
-          steps,
-        }),
-      });
+      );
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Generation failed');
+      if (data.error) {
+        setError(data.error);
         return;
       }
 

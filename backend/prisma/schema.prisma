@@ -66,7 +66,7 @@ model Message {
   feedbacks Feedback[]
   createdAt DateTime   @default(now())
 
-  @@index([threadId])
+  @@index([threadId, role])
 }
 
 model Feedback {
@@ -97,7 +97,7 @@ model Execution {
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@index([userId, type, createdAt])
   @@index([status])
 }
 
@@ -116,9 +116,9 @@ model CreditTransaction {
   reason      String   // "daily_grant" | "chat" | "image_gen" | "purchase"
   executionId String?
   createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 
-  @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model Workflow {

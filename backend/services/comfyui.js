@@ -12,6 +12,9 @@ class ComfyUIClient {
     this.ws = null;
     this.clientId = crypto.randomUUID();
     this.pendingRequests = new Map();
+    this.reconnectAttempts = 0;
+    this.maxReconnectDelay = 30000;
+    this.isReconnecting = false;
   }
 
   connect() {
@@ -24,6 +27,8 @@ class ComfyUIClient {
 
       this.ws.on('open', () => {
         logger.info('ComfyUI WebSocket connected');
+        this.reconnectAttempts = 0;
+        this.isReconnecting = false;
         resolve();
       });
 
@@ -39,6 +44,7 @@ class ComfyUIClient {
       this.ws.on('close', () => {
         logger.info('ComfyUI WebSocket disconnected');
         this.ws = null;
+        this._scheduleReconnect();
       });
 
       this.ws.on('error', (err) => {
@@ -48,6 +54,29 @@ class ComfyUIClient {
 
       setTimeout(() => reject(new Error('ComfyUI connection timeout')), 10000);
     });
+  }
+
+  _scheduleReconnect() {
+    if (this.isReconnecting) return;
+    this.isReconnecting = true;
+
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+    this.reconnectAttempts++;
+
+    logger.info(`ComfyUI reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
+    setTimeout(() => {
+      this.connect().catch(() => {
+        this._scheduleReconnect();
+      });
+    }, delay);
+  }
+
+  reconnect() {
+    this.disconnect();
+    this.reconnectAttempts = 0;
+    this.isReconnecting = false;
+    return this.connect();
   }
 
   _handleMessage(message) {
@@ -84,46 +113,54 @@ class ComfyUIClient {
     }
   }
 
-  async queuePrompt(workflow) {
+  async queuePrompt(workflow, retries = 2) {
     const payload = {
       prompt: workflow,
       client_id: this.clientId,
     };
 
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify(payload);
-      const url = new URL('/prompt', this.baseUrl);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await new Promise((resolve, reject) => {
+          const postData = JSON.stringify(payload);
+          const url = new URL('/prompt', this.baseUrl);
 
-      const req = http.request({
-        hostname: url.hostname,
-        port: url.port,
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData),
-        },
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => body += chunk);
-        res.on('end', () => {
-          try {
-            const data = JSON.parse(body);
-            if (data.error) {
-              reject(new Error(data.error));
-            } else {
-              resolve(data);
-            }
-          } catch (err) {
-            reject(err);
-          }
+          const req = http.request({
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(postData),
+            },
+          }, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+              try {
+                const data = JSON.parse(body);
+                if (data.error) {
+                  reject(new Error(data.error));
+                } else {
+                  resolve(data);
+                }
+              } catch (err) {
+                reject(err);
+              }
+            });
+          });
+
+          req.on('error', reject);
+          req.write(postData);
+          req.end();
         });
-      });
-
-      req.on('error', reject);
-      req.write(postData);
-      req.end();
-    });
+      } catch (err) {
+        if (attempt === retries) throw err;
+        logger.warn(`ComfyUI queuePrompt attempt ${attempt + 1} failed: ${err.message}, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
   }
 
   async waitForCompletion(promptId, onProgress) {

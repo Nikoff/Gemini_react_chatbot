@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Menu, Search, X, Download, Share2, Copy, Check } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; }
 
@@ -12,7 +12,7 @@ interface Props {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   currentThreadId: string | null;
-  session: any;
+  session: Session;
 }
 
 export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onToggleSidebar, currentThreadId, session }: Props) {
@@ -25,10 +25,10 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
   const handleSearch = async () => {
     if (!searchQuery.trim() || !currentThreadId || !session) return;
     try {
-      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/search?q=${encodeURIComponent(searchQuery)}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      const data = await api<ChatMessage[]>(`/api/threads/${currentThreadId}/search?q=${encodeURIComponent(searchQuery)}`, {
+        token: session.access_token,
       });
-      if (res.ok) setSearchResults(await res.json());
+      setSearchResults(data);
     } catch (err) {
       console.error('Search failed:', err);
     }
@@ -37,18 +37,17 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
   const handleExport = async (format: 'json' | 'md') => {
     if (!currentThreadId || !session) return;
     try {
-      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/export?format=${format}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      const res = await api<Response>(`/api/threads/${currentThreadId}/export?format=${format}`, {
+        token: session.access_token,
+        raw: true,
       });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `chat-export.${format}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed:', err);
     }
@@ -57,14 +56,11 @@ export function ChatHeader({ selectedModel, onModelChange, isSidebarOpen, onTogg
   const handleShare = async () => {
     if (!currentThreadId || !session) return;
     try {
-      const res = await fetch(`${API_URL}/api/threads/${currentThreadId}/share`, {
+      const data = await api<{ shareUrl: string }>(`/api/threads/${currentThreadId}/share`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        token: session.access_token,
       });
-      if (res.ok) {
-        const data = await res.json();
-        setShareUrl(`${window.location.origin}${data.shareUrl}`);
-      }
+      setShareUrl(`${window.location.origin}${data.shareUrl}`);
     } catch (err) {
       console.error('Share failed:', err);
     }

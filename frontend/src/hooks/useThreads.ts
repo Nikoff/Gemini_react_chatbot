@@ -1,44 +1,35 @@
 import { useState, useCallback } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { api } from '../utils/apiClient';
 
 interface Thread { id: string; title: string; createdAt: string; }
 
-export function useThreads(_session: any) {
+export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
 
   const loadThreads = useCallback(async (token: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads?limit=50`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.items || []);
-        if (items.length > 0) {
-          setThreads(items);
-          if (!currentThreadId) setCurrentThreadId(items[0].id);
-        }
+      const data = await api<Thread[] | { items: Thread[] }>(`/api/threads?limit=50`, { token });
+      const items = Array.isArray(data) ? data : (data.items || []);
+      if (items.length > 0) {
+        setThreads(items);
+        setCurrentThreadId(prev => prev ?? (items.length > 0 ? items[0].id : null));
       }
     } catch (err) {
       console.error('Failed to load threads:', err);
     }
-  }, [currentThreadId]);
+  }, []);
 
   const createThread = useCallback(async (token: string, title?: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads`, {
+      const newThread = await api<Thread>('/api/threads', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ title: title || `Chat ${new Date().toLocaleDateString()}` })
+        body: { title: title || `Chat ${new Date().toLocaleDateString()}` },
+        token,
       });
-      if (res.ok) {
-        const newThread = await res.json();
-        setThreads(prev => [newThread, ...prev]);
-        setCurrentThreadId(newThread.id);
-        return newThread;
-      }
+      setThreads(prev => [newThread, ...prev]);
+      setCurrentThreadId(newThread.id);
+      return newThread;
     } catch (err) {
       console.error('Failed to create thread:', err);
     }
@@ -46,15 +37,13 @@ export function useThreads(_session: any) {
 
   const deleteThread = useCallback(async (token: string, threadId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}`, {
+      await api(`/api/threads/${threadId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        token,
       });
-      if (res.ok) {
-        setThreads(prev => prev.filter(t => t.id !== threadId));
-        if (currentThreadId === threadId) {
-          setCurrentThreadId(null);
-        }
+      setThreads(prev => prev.filter(t => t.id !== threadId));
+      if (currentThreadId === threadId) {
+        setCurrentThreadId(null);
       }
     } catch (err) {
       console.error('Failed to delete thread:', err);
@@ -63,15 +52,12 @@ export function useThreads(_session: any) {
 
   const renameThread = useCallback(async (token: string, threadId: string, title: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}`, {
+      const data = await api<{ title: string }>(`/api/threads/${threadId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ title })
+        body: { title },
+        token,
       });
-      if (res.ok) {
-        const data = await res.json();
-        setThreads(prev => prev.map(t => t.id === threadId ? { ...t, title: data.title } : t));
-      }
+      setThreads(prev => prev.map(t => t.id === threadId ? { ...t, title: data.title } : t));
     } catch (err) {
       console.error('Failed to rename thread:', err);
     }
