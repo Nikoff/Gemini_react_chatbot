@@ -250,6 +250,24 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
                 <><Sparkles size={16} /> Generate ({cost} credits)</>
               )}
             </button>
+            {history.length > 0 && (
+              <div className="gen-history">
+                <h3>Recent Generations</h3>
+                <div className="gen-history-grid">
+                  {history.map((h) => (
+                    <div key={h.id} className={`gen-history-item ${h.status}`}>
+                      <div className="gen-history-status">
+                        {h.status === 'completed' ? '\u2705' : h.status === 'failed' ? '\u274c' : '\u23f3'}
+                      </div>
+                      <div className="gen-history-info">
+                        <span className="gen-history-prompt">{h.input?.prompt?.substring(0, 50) || 'N/A'}</span>
+                        <span className="gen-history-meta">{h.creditsUsed} credits \u00b7 {new Date(h.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="gen-preview-section">
@@ -277,25 +295,6 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
             )}
           </div>
         </div>
-
-        {history.length > 0 && (
-          <div className="gen-history">
-            <h3>Recent Generations</h3>
-            <div className="gen-history-grid">
-              {history.map((h) => (
-                <div key={h.id} className={`gen-history-item ${h.status}`}>
-                  <div className="gen-history-status">
-                    {h.status === 'completed' ? '\u2705' : h.status === 'failed' ? '\u274c' : '\u23f3'}
-                  </div>
-                  <div className="gen-history-info">
-                    <span className="gen-history-prompt">{h.input?.prompt?.substring(0, 50) || 'N/A'}</span>
-                    <span className="gen-history-meta">{h.creditsUsed} credits \u00b7 {new Date(h.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -2096,22 +2096,18 @@
 .generation-panel-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: #0f172a;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   z-index: 10001;
 }
 
 .generation-panel {
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 85vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 1.5rem;
+  overflow: hidden;
 }
 
 .gen-panel-header {
@@ -2147,12 +2143,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .gen-input-section {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .gen-field {
@@ -2284,10 +2285,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
+  flex: 1;
+  min-height: 0;
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 8px;
+  overflow: hidden;
 }
 
 .gen-result {
@@ -2296,11 +2299,14 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
+  width: 100%;
+  height: 100%;
 }
 
 .gen-result-image {
   max-width: 100%;
-  max-height: 400px;
+  max-height: calc(100% - 3rem);
+  object-fit: contain;
   border-radius: 8px;
   object-fit: contain;
 }
