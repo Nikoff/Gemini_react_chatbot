@@ -244,12 +244,21 @@
   background: none;
   border: 1px solid transparent;
   border-radius: 4px;
-  font-size: 1.1rem;
   cursor: pointer;
   padding: 0.15rem 0.3rem;
   line-height: 1;
   opacity: 0.5;
   transition: opacity 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag-btn svg {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  display: block;
 }
 
 .flag-btn:hover {

@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Image, Sparkles, Download, X, Loader2, Coins, AlertCircle, Cloud } from 'lucide-react';
 import { api } from '../utils/apiClient';
 import { useI18n } from '../context/I18nContext';
+import { FlagIcon } from './FlagIcon';
 
 interface GenerationHistory {
   id: string;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export function GenerationPanel({ session, isOpen, onClose }: Props) {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -156,8 +157,8 @@ export function GenerationPanel({ session, isOpen, onClose }: Props) {
             <Coins size={14} /> {credits} credits
           </div>
           <div className="panel-header-right">
-            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English">{'\ud83c\uddec\ud83c\udde7'}</button>
-            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский">{'\ud83c\uddf7\ud83c\uddfa'}</button>
+            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English"><FlagIcon locale="en" /></button>
+            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский"><FlagIcon locale="ru" /></button>
             <button className="modal-close" onClick={onClose}><X size={18} /></button>
           </div>
         </div>

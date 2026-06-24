@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Store, Search, Star, Download, ShoppingCart, X, Plus } from 'lucide-react';
 import { api } from '../utils/apiClient';
 import { useI18n } from '../context/I18nContext';
+import { FlagIcon } from './FlagIcon';
 
 interface MarketplaceItem {
   id: string;
@@ -44,7 +45,7 @@ const SORTS = [
 ];
 
 export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -128,8 +129,8 @@ export function MarketplaceBrowser({ session, isOpen, onClose }: Props) {
             <Plus size={14} /> Publish
           </button>
           <div className="panel-header-right">
-            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English">{'\ud83c\uddec\ud83c\udde7'}</button>
-            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский">{'\ud83c\uddf7\ud83c\uddfa'}</button>
+            <button className={`flag-btn ${locale === 'en' ? 'active' : ''}`} onClick={() => setLocale('en')} title="English"><FlagIcon locale="en" /></button>
+            <button className={`flag-btn ${locale === 'ru' ? 'active' : ''}`} onClick={() => setLocale('ru')} title="Русский"><FlagIcon locale="ru" /></button>
             <button className="modal-close" onClick={onClose}><X size={18} /></button>
           </div>
         </div>
