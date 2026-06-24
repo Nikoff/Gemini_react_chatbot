@@ -113,7 +113,8 @@ const checkSubscription = async (req, res, next) => {
 
     next();
   } catch (err) {
-    next();
+    logger.error(`checkSubscription failed: ${err.message}`);
+    return res.status(500).json({ error: 'Subscription verification failed.' });
   }
 };
 
@@ -137,4 +138,17 @@ module.exports = {
   systemPromptSchema,
   requireAdmin,
   checkSubscription,
+  dailyCreditGrant: async (req, res, next) => {
+    try {
+      if (!req.user?.sub) return next();
+      const { grantDailyCredits } = require('../services/credits');
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.sub },
+        include: { subscription: true },
+      });
+      const tier = user?.subscription?.status === 'active' ? 'pro' : 'free';
+      await grantDailyCredits(req.user.sub, tier);
+    } catch {}
+    next();
+  },
 };

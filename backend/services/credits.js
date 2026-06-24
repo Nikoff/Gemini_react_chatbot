@@ -57,19 +57,20 @@ async function spendCredits(userId, amount, reason, executionId) {
     return { success: false, balance: credit.balance, needed: amount };
   }
 
-  await prisma.credit.update({
-    where: { userId },
-    data: { balance: { decrement: amount } },
-  });
-
-  await prisma.creditTransaction.create({
-    data: {
-      userId,
-      amount: -amount,
-      reason,
-      executionId: executionId || null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.credit.update({
+      where: { userId },
+      data: { balance: { decrement: amount } },
+    }),
+    prisma.creditTransaction.create({
+      data: {
+        userId,
+        amount: -amount,
+        reason,
+        executionId: executionId || null,
+      },
+    }),
+  ]);
 
   logger.info(`Deducted ${amount} credits from user ${userId} for ${reason}`);
   return { success: true, balance: credit.balance - amount };

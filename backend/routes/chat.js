@@ -189,17 +189,17 @@ module.exports = function(app, { checkSubscription, chatLimiter }) {
 
         if (chunk.functionCalls && chunk.functionCalls.length > 0) {
           for (const call of chunk.functionCalls) {
-            let result = '';
-            if (call.name === 'calculator') {
-              try {
-                const expr = call.args.expression;
-                if (!/^[\d\s+\-*/().%]+$/.test(expr)) {
-                  result = 'Error: Invalid characters in expression';
-                } else {
-                  const safeEval = new Function('return ' + expr);
-                  result = String(safeEval());
-                }
-              } catch { result = 'Error: Invalid expression'; }
+          let result = '';
+          if (call.name === 'calculator') {
+            try {
+              const expr = call.args.expression;
+              if (!/^[\d\s+\-*/().%]+$/.test(expr)) {
+                result = 'Error: Invalid characters in expression';
+              } else {
+                const safeEval = Function('"use strict"; return (' + expr + ')');
+                result = String(safeEval());
+              }
+            } catch { result = 'Error: Invalid expression'; }
             } else if (call.name === 'get_current_time') {
               result = new Date().toISOString();
             }

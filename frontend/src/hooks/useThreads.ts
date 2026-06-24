@@ -10,16 +10,15 @@ export function useThreads(_session: any) {
 
   const loadThreads = useCallback(async (token: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads`, {
+      const res = await fetch(`${API_URL}/api/threads?limit=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setThreads(data);
-          if (data.length > 0 && !currentThreadId) {
-            setCurrentThreadId(data[0].id);
-          }
+        const items = Array.isArray(data) ? data : (data.items || []);
+        if (items.length > 0) {
+          setThreads(items);
+          if (!currentThreadId) setCurrentThreadId(items[0].id);
         }
       }
     } catch (err) {

@@ -1,8 +1,22 @@
 import { useState, useCallback } from 'react';
+import { consumeSSEStream } from '../utils/sseStream';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface ChatMessage { id?: string; role: 'user' | 'ai'; text: string; image?: { data: string; mimeType: string } | null; audio?: { data: string; mimeType: string } | null; feedback?: { rating: number; comment?: string } | null; editedAt?: string | null; }
+
+function updateMessagesWithAI(setMessages: any, aiText: string) {
+  setMessages((prev: ChatMessage[]) => {
+    const updated = [...prev];
+    const lastIdx = updated.length - 1;
+    if (updated[lastIdx]?.role === 'ai') {
+      updated[lastIdx] = { ...updated[lastIdx], text: aiText };
+    } else {
+      updated.push({ role: 'ai', text: aiText });
+    }
+    return updated;
+  });
+}
 
 export function useChat(_session: any, trackRequest: (i: number, o: number, t: number, ms: number, model: string) => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -46,42 +60,17 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
 
       if (!response.ok) return;
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
       let aiText = '';
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'chunk') {
-              aiText += event.text;
-              setMessages(prev => {
-                const updated = [...prev];
-                const lastIdx = updated.length - 1;
-                if (updated[lastIdx]?.role === 'ai') {
-                  updated[lastIdx] = { ...updated[lastIdx], text: aiText };
-                } else {
-                  updated.push({ role: 'ai', text: aiText });
-                }
-                return updated;
-              });
-            } else if (event.type === 'done') {
-              const endTime = Date.now();
-              trackRequest(event.usage.promptTokens, event.usage.candidatesTokens, event.usage.totalTokens, endTime - startTime, event.modelUsed);
-            }
-          } catch {}
-        }
-      }
+      await consumeSSEStream(response, {
+        onChunk: (_text, fullText) => {
+          aiText = fullText;
+          updateMessagesWithAI(setMessages, aiText);
+        },
+        onDone: (usage, modelUsed) => {
+          const endTime = Date.now();
+          if (usage) trackRequest(usage.promptTokens, usage.candidatesTokens, usage.totalTokens, endTime - startTime, modelUsed);
+        },
+      });
     } catch (err) {
       console.error('Stream failed:', err);
     } finally {
@@ -129,41 +118,13 @@ export function useChat(_session: any, trackRequest: (i: number, o: number, t: n
 
       if (!response.ok) return;
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
       let aiText = '';
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'chunk') {
-              aiText += event.text;
-              setMessages(prev => {
-                const updated = [...prev];
-                const lastIdx = updated.length - 1;
-                if (updated[lastIdx]?.role === 'ai') {
-                  updated[lastIdx] = { ...updated[lastIdx], text: aiText };
-                } else {
-                  updated.push({ role: 'ai', text: aiText });
-                }
-                return updated;
-              });
-            } else if (event.type === 'done') {
-              // done
-            }
-          } catch {}
-        }
-      }
+      await consumeSSEStream(response, {
+        onChunk: (_text, fullText) => {
+          aiText = fullText;
+          updateMessagesWithAI(setMessages, aiText);
+        },
+      });
     } catch (err) {
       console.error('Regenerate failed:', err);
     } finally {

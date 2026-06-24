@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { logger, prisma, requireAdmin, checkSubscription } = require('./middleware/shared');
+const { logger, prisma, requireAdmin, checkSubscription, dailyCreditGrant } = require('./middleware/shared');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -32,9 +32,20 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/', globalLimiter);
+app.use('/api/', dailyCreditGrant);
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  const health = { status: 'ok', timestamp: new Date().toISOString(), services: {} };
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    health.services.database = 'ok';
+  } catch {
+    health.services.database = 'error';
+    health.status = 'degraded';
+  }
+
+  res.json(health);
 });
 
 require('./routes/auth')(app);

@@ -13,6 +13,8 @@ import { GenerationPanel } from './components/GenerationPanel';
 import { WorkflowEditor } from './components/WorkflowEditor';
 import { AgentDashboard } from './components/AgentDashboard';
 import { MarketplaceBrowser } from './components/MarketplaceBrowser';
+import { PanelErrorBoundary } from './components/PanelErrorBoundary';
+import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { Sidebar } from './components/Sidebar';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatMessages } from './components/ChatMessages';
@@ -38,6 +40,7 @@ export default function App() {
   const [showWorkflowEditor, setShowWorkflowEditor] = useState(false);
   const [showAgentDashboard, setShowAgentDashboard] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('onboarding_complete'));
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { threads, setThreads, currentThreadId, setCurrentThreadId, loadThreads, createThread, deleteThread, renameThread } = useThreads(session);
@@ -160,15 +163,26 @@ export default function App() {
       </main>
 
       <StatsDashboard />
-      {showAdmin && <AdminDashboard session={session} onClose={() => setShowAdmin(false)} />}
-      <GenerationPanel session={session} isOpen={showGeneration} onClose={() => setShowGeneration(false)} />
-      <WorkflowEditor session={session} isOpen={showWorkflowEditor} onClose={() => setShowWorkflowEditor(false)} />
-      <AgentDashboard session={session} isOpen={showAgentDashboard} onClose={() => setShowAgentDashboard(false)} />
-      <MarketplaceBrowser session={session} isOpen={showMarketplace} onClose={() => setShowMarketplace(false)} />
+      <PanelErrorBoundary name="Admin">
+        {showAdmin && <AdminDashboard session={session} onClose={() => setShowAdmin(false)} />}
+      </PanelErrorBoundary>
+      <PanelErrorBoundary name="Generation">
+        <GenerationPanel session={session} isOpen={showGeneration} onClose={() => setShowGeneration(false)} />
+      </PanelErrorBoundary>
+      <PanelErrorBoundary name="Workflow Editor">
+        <WorkflowEditor session={session} isOpen={showWorkflowEditor} onClose={() => setShowWorkflowEditor(false)} />
+      </PanelErrorBoundary>
+      <PanelErrorBoundary name="Agent Dashboard">
+        <AgentDashboard session={session} isOpen={showAgentDashboard} onClose={() => setShowAgentDashboard(false)} />
+      </PanelErrorBoundary>
+      <PanelErrorBoundary name="Marketplace">
+        <MarketplaceBrowser session={session} isOpen={showMarketplace} onClose={() => setShowMarketplace(false)} />
+      </PanelErrorBoundary>
       {theme === 'living-canvas' && <LivingCanvas />}
       {theme === 'neural' && <NeuralCanvas />}
       {theme === 'blackhole' && <BlackHoleCanvas />}
       <ThemeSwitcher onOpenGeneration={() => setShowGeneration(true)} onOpenWorkflowEditor={() => setShowWorkflowEditor(true)} onOpenAgentDashboard={() => setShowAgentDashboard(true)} onOpenMarketplace={() => setShowMarketplace(true)} />
+      <OnboardingTutorial isOpen={showOnboarding} onClose={() => { setShowOnboarding(false); localStorage.setItem('onboarding_complete', '1'); }} />
     </div>
   );
 }

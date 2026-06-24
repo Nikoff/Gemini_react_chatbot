@@ -3149,3 +3149,125 @@
 }
 
 .mp-purchase-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==========================================================================
+   Onboarding Tutorial
+   ========================================================================== */
+
+.onboarding-modal {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  padding: 2rem;
+  position: relative;
+  text-align: center;
+}
+
+.onboarding-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.onboarding-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-content h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #f8fafc;
+}
+
+.onboarding-content p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.onboarding-dots {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #334155;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.onboarding-dot.active {
+  background: #3b82f6;
+  transform: scale(1.2);
+}
+
+.onboarding-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.onboarding-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.onboarding-btn:hover:not(:disabled) {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.onboarding-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.onboarding-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.onboarding-btn.primary:hover {
+  background: #2563eb;
+}
+
+.onboarding-skip {
+  display: block;
+  margin: 1rem auto 0;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.onboarding-skip:hover {
+  color: #94a3b8;
+}

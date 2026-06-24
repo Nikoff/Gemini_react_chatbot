@@ -1,14 +1,24 @@
-const { prisma, threadSchema, searchSchema, systemPromptSchema, ai, CONTEXT_COMPRESS_THRESHOLD, CONTEXT_KEEP_RECENT, logger } = require('../middleware/shared');
+const { prisma, threadSchema, searchSchema, systemPromptSchema, ai, CONTEXT_COMPRESS_THRESHOLD, CONTEXT_KEEP_RECENT, TIERS, logger } = require('../middleware/shared');
 const requireAuth = require('../authMiddleware');
 
 module.exports = function(app) {
   app.get('/api/threads', requireAuth, async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const cursor = req.query.cursor || undefined;
+
     try {
+      const where = { userId: req.user.sub };
       const threads = await prisma.thread.findMany({
-        where: { userId: req.user.sub },
+        where,
         orderBy: { updatedAt: 'desc' },
+        take: limit + 1,
+        ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       });
-      res.json(threads);
+
+      const hasMore = threads.length > limit;
+      const items = hasMore ? threads.slice(0, limit) : threads;
+
+      res.json({ items, nextCursor: hasMore ? items[items.length - 1].id : null });
     } catch (err) {
       logger.error(`GET /api/threads failed: ${err.message}`);
       res.status(500).json({ error: 'Failed to fetch threads.' });
@@ -29,6 +39,20 @@ module.exports = function(app) {
         update: {},
         create: { id: userId, email: req.user.email },
       });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { subscription: true },
+      });
+      const tier = user?.subscription?.status === 'active' ? 'pro' : 'free';
+      const limits = TIERS[tier];
+
+      if (limits.maxThreads > 0) {
+        const threadCount = await prisma.thread.count({ where: { userId } });
+        if (threadCount >= limits.maxThreads) {
+          return res.status(429).json({ error: `Thread limit reached (${limits.maxThreads}). Upgrade to Pro for unlimited threads.` });
+        }
+      }
 
       const newThread = await prisma.thread.create({
         data: { title: parsed.data.title || 'New Chat', userId },
